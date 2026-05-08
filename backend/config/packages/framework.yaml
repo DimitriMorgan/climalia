@@ -1,0 +1,22 @@
+# see https://symfony.com/doc/current/reference/configuration/framework.html
+framework:
+    secret: '%env(APP_SECRET)%'
+
+    # Sessions désactivées : API stateless avec JWT
+    session: false
+
+    # Rate limiter pour le formulaire de contact public
+    rate_limiter:
+        contact:
+            policy: 'token_bucket'
+            limit: 5
+            rate: { interval: '15 minutes', amount: 5 }
+
+when@test:
+    framework:
+        test: true
+        rate_limiter:
+            contact:
+                policy: 'token_bucket'
+                limit: 1000
+                rate: { interval: '15 minutes', amount: 1000 }
