@@ -1,0 +1,25 @@
+# --- secrets / env (root only — backend/.env is a Symfony default committed) ---
+/.env
+/.env.local
+/.env.*.local
+
+# --- Backend Symfony ---
+backend/vendor/
+backend/var/
+backend/.env.local
+backend/.env.local.php
+backend/.env.*.local
+backend/public/bundles/
+backend/.phpunit.cache/
+backend/config/jwt/*.pem
+backend/var/
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# --- Docker volumes locaux (si bind-mount un jour) ---
+docker/postgres/data/

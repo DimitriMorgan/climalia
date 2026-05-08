@@ -1,0 +1,24 @@
+# Caddyfile FrankenPHP pour Climalia (dev)
+{
+    # Active les modules FrankenPHP
+    frankenphp
+    # Pas de TLS auto en dev local
+    auto_https off
+    admin off
+}
+
+{$SERVER_NAME:localhost:8000} {
+    log {
+        output stderr
+        format console
+    }
+
+    root * /app/public
+    encode zstd br gzip
+
+    # Active le PHP via FrankenPHP
+    php_server {
+        # Monte le routeur Symfony
+        try_files {path} index.php
+    }
+}

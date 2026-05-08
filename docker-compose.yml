@@ -1,0 +1,65 @@
+name: climalia
+
+networks:
+  climalia:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  backend_vendor:
+  backend_var:
+  caddy_data:
+  caddy_config:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: climalia_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-climalia}
+      POSTGRES_USER: ${POSTGRES_USER:-climalia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-climalia}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-climalia} -d ${POSTGRES_DB:-climalia}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [climalia]
+
+  frankenphp:
+    build:
+      context: .
+      dockerfile: docker/frankenphp/Dockerfile
+    image: climalia/frankenphp:dev
+    container_name: climalia_frankenphp
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      APP_SECRET: ${APP_SECRET}
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE}
+      JWT_TTL: ${JWT_TTL:-3600}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN}
+      MAILER_DSN: ${MAILER_DSN:-null://null}
+      SERVER_NAME: ${SERVER_NAME:-:8000}
+    ports:
+      - "${HTTP_PORT:-8000}:8000"
+      - "${HTTPS_PORT:-8443}:8443"
+    volumes:
+      - ./backend:/app
+      - backend_vendor:/app/vendor
+      - backend_var:/app/var
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [climalia]
