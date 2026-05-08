@@ -56,6 +56,12 @@ services:
     ports:
       - "${HTTP_PORT:-8000}:8000"
       - "${HTTPS_PORT:-8443}:8443"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8000/api/realizations || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     volumes:
       - ./backend:/app
       - backend_vendor:/app/vendor
