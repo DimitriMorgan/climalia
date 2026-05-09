@@ -7,9 +7,14 @@ import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
   { ignores: ['dist', 'coverage', 'cypress/videos', 'cypress/screenshots'] },
+  js.configs.recommended,
+  ...tseslint.configs.strictTypeChecked,
+  {
+    files: ['vite.config.ts', 'eslint.config.js'],
+    ...tseslint.configs.disableTypeChecked,
+  },
   {
     files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}'],
-    extends: [js.configs.recommended, ...tseslint.configs.strictTypeChecked],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
