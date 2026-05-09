@@ -1,7 +1,9 @@
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'ts-jest/presets/default-esm',
-  testEnvironment: 'jsdom',
+  // 'node' env is used for the API/store tests because jsdom strips Node 22's fetch globals.
+  // Component tests (Section 3+) will switch to jsdom per-file via @jest-environment docblock.
+  testEnvironment: 'node',
   // NOTE: plan said 'setupFilesAfterEach' — Jest's actual option is 'setupFilesAfterEnv'
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
