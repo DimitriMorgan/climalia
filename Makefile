@@ -55,3 +55,24 @@ phpstan: ## Analyse statique PHPStan niveau 8
 
 cache-clear: ## Vide le cache Symfony
 	$(BACK_T) php bin/console cache:clear
+
+# --- Frontend ---
+FRONT     ?= $(DC) exec node
+FRONT_T   ?= $(DC) exec -T node
+
+.PHONY: bash-front test-front typecheck lint-front cypress
+
+bash-front: ## Shell dans le conteneur frontend
+	$(FRONT) sh
+
+test-front: ## Lance la suite de tests Jest + RTL
+	$(FRONT_T) npm run test -- --ci
+
+typecheck: ## Vérification TypeScript stricte
+	$(FRONT_T) npm run typecheck
+
+lint-front: ## ESLint sur le frontend
+	$(FRONT_T) npm run lint
+
+cypress: ## Lance les tests e2e Cypress (headless)
+	$(FRONT_T) npm run cypress:run
