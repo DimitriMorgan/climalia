@@ -44,4 +44,20 @@ describe('ProtectedRoute', (): void => {
     renderAt('/espace-pro/dashboard');
     expect(screen.getByText('dashboard-page')).toBeInTheDocument();
   });
+
+  test('redirects to home when role not allowed', (): void => {
+    useAuthStore.getState().login('tok', { ...user, role: 'EMPLOYEE' });
+    render(
+      <MemoryRouter initialEntries={['/espace-pro/dashboard']}>
+        <Routes>
+          <Route path="/" element={<div>home-page</div>} />
+          <Route path="/espace-pro/login" element={<div>login-page</div>} />
+          <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
+            <Route path="/espace-pro/dashboard" element={<div>dashboard-page</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('home-page')).toBeInTheDocument();
+  });
 });

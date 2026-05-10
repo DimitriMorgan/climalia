@@ -17,7 +17,7 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps): React.Rea
   }
   if (allowedRoles !== undefined && allowedRoles.length > 0) {
     if (user === null || !allowedRoles.includes(user.role)) {
-      return <Navigate to="/espace-pro/login" replace />;
+      return <Navigate to="/" replace />;
     }
   }
   return <Outlet />;
