@@ -45,3 +45,58 @@ if (g['TextEncoder'] === undefined) {
   g['TextEncoder'] = util.TextEncoder;
   g['TextDecoder'] = util.TextDecoder;
 }
+
+// jsdom strips Node's WHATWG fetch primitives (Request/Response/Headers/fetch). Tests that
+// build a `Response` to feed to a mocked `global.fetch` need at least Response present.
+// We provide a minimal but spec-aligned Response shim covering the surface our `apiFetch`
+// reads (status, statusText, ok, json(), headers).
+interface ResponseInit {
+  status?: number;
+  statusText?: string;
+  headers?: Record<string, string> | ReadonlyArray<readonly [string, string]>;
+}
+class MinimalHeaders {
+  private readonly map = new Map<string, string>();
+  public constructor(init?: Record<string, string> | ReadonlyArray<readonly [string, string]>) {
+    if (init === undefined) return;
+    const entries: ReadonlyArray<readonly [string, string]> = Array.isArray(init)
+      ? (init as ReadonlyArray<readonly [string, string]>)
+      : Object.entries(init as Record<string, string>);
+    for (const [k, v] of entries) this.map.set(k.toLowerCase(), v);
+  }
+  public get(name: string): string | null {
+    return this.map.get(name.toLowerCase()) ?? null;
+  }
+  public has(name: string): boolean {
+    return this.map.has(name.toLowerCase());
+  }
+  public set(name: string, value: string): void {
+    this.map.set(name.toLowerCase(), value);
+  }
+}
+class MinimalResponse {
+  public readonly status: number;
+  public readonly statusText: string;
+  public readonly ok: boolean;
+  public readonly headers: MinimalHeaders;
+  private readonly bodyText: string;
+  public constructor(body: string | null = null, init: ResponseInit = {}) {
+    this.status = init.status ?? 200;
+    this.statusText = init.statusText ?? '';
+    this.ok = this.status >= 200 && this.status < 300;
+    this.headers = new MinimalHeaders(init.headers);
+    this.bodyText = body ?? '';
+  }
+  public async json(): Promise<unknown> {
+    return JSON.parse(this.bodyText) as unknown;
+  }
+  public async text(): Promise<string> {
+    return this.bodyText;
+  }
+}
+if (g['Response'] === undefined) {
+  g['Response'] = MinimalResponse as unknown as typeof Response;
+}
+if (g['Headers'] === undefined) {
+  g['Headers'] = MinimalHeaders as unknown as typeof Headers;
+}
