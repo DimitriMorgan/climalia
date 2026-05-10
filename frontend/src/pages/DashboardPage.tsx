@@ -73,7 +73,21 @@ export function DashboardPage(): React.ReactElement {
   async function handleDownload(id: string): Promise<void> {
     try {
       const meta = await getDocumentDownload(id);
-      window.open(meta.fileUrl, '_blank', 'noopener,noreferrer');
+      let url: URL;
+      try {
+        url = new URL(meta.fileUrl);
+      } catch {
+        setError('URL de téléchargement invalide.');
+        return;
+      }
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        setError('URL de téléchargement invalide.');
+        return;
+      }
+      const opened = window.open(url.toString(), '_blank', 'noopener,noreferrer');
+      if (opened === null) {
+        setError('Le téléchargement a été bloqué. Autorisez les pop-ups pour ce site.');
+      }
     } catch (err: unknown) {
       const message = err instanceof ApiError ? err.message : 'Erreur de téléchargement.';
       setError(message);
@@ -87,7 +101,7 @@ export function DashboardPage(): React.ReactElement {
       // JWT logout is stateless — ignore errors.
     }
     storeLogout();
-    void navigate('/espace-pro/login');
+    // token-watcher effect handles the redirect
   }
 
   if (user === null) {

@@ -76,4 +76,29 @@ describe('LoginForm', (): void => {
     expect(alert.textContent).toMatch(/invalid|incorrect|invalides/i);
     expect(useAuthStore.getState().token).toBeNull();
   });
+
+  test('reverts session when fetchMe fails after login', async (): Promise<void> => {
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'jwt.token' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: 'boom' }), {
+          status: 500,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+    const user = userEvent.setup();
+    renderLogin();
+    await user.type(screen.getByLabelText(/email/i), 'admin@climalia.fr');
+    await user.type(screen.getByLabelText(/mot de passe/i), 'demo');
+    await user.click(screen.getByRole('button', { name: /connexion|se connecter/i }));
+    await waitFor((): void => {
+      expect(useAuthStore.getState().token).toBeNull();
+      expect(useAuthStore.getState().user).toBeNull();
+    });
+  });
 });

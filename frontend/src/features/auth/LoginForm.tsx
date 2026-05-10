@@ -6,18 +6,10 @@ import { ApiError } from '@/api/client';
 import { useAuthStore } from '@/stores/authStore';
 import type { ApiUser } from '@/types/api';
 
-const PLACEHOLDER_USER: ApiUser = {
-  id: '',
-  email: '',
-  firstName: '',
-  lastName: '',
-  role: 'EMPLOYEE',
-  region: null,
-};
-
 export function LoginForm(): React.ReactElement {
   const navigate = useNavigate();
-  const storeLogin = useAuthStore((s) => s.login);
+  const setToken = useAuthStore((s) => s.setToken);
+  const setSession = useAuthStore((s) => s.login);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -28,13 +20,19 @@ export function LoginForm(): React.ReactElement {
     setError(null);
     try {
       const { token } = await login({ email: email.trim(), password });
-      storeLogin(token, PLACEHOLDER_USER);
-      const me = await fetchMe();
-      storeLogin(token, me);
+      setToken(token);
+      let me: ApiUser;
+      try {
+        me = await fetchMe();
+      } catch (innerErr: unknown) {
+        useAuthStore.getState().logout();
+        throw innerErr;
+      }
+      setSession(token, me);
       void navigate('/espace-pro/dashboard', { replace: true });
     } catch (err: unknown) {
       if (err instanceof ApiError) {
-        setError(err.message.includes('Invalid') ? 'Identifiants invalides.' : err.message);
+        setError(err.status === 401 ? 'Identifiants invalides.' : err.message);
       } else {
         setError('Erreur réseau, veuillez réessayer.');
       }

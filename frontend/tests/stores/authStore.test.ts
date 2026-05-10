@@ -29,6 +29,12 @@ describe('authStore', (): void => {
     expect(state.token).not.toBeNull();
   });
 
+  test('setToken updates only the token, leaving user untouched', (): void => {
+    useAuthStore.getState().setToken('new-token');
+    expect(useAuthStore.getState().token).toBe('new-token');
+    expect(useAuthStore.getState().user).toBeNull();
+  });
+
   test('logout clears state', (): void => {
     useAuthStore.getState().login('jwt.token.here', sampleUser);
     useAuthStore.getState().logout();
