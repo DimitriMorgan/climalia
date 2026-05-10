@@ -13,7 +13,8 @@ export interface FranceMapProps {
 }
 
 export function FranceMap({ onSelect, highlighted }: FranceMapProps): React.ReactElement {
-  const isHighlighted = (r: string): boolean => highlighted === undefined || highlighted.includes(r);
+  const isHighlighted = (r: string): boolean =>
+    highlighted !== undefined && highlighted.includes(r);
   return (
     <div
       role="group"

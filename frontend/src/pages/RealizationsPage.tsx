@@ -5,20 +5,31 @@ import { RealizationFilters, type RealizationFiltersState } from '@/features/rea
 import { RealizationGrid } from '@/features/realizations/RealizationGrid';
 import type { ApiRealization } from '@/types/api';
 
+const DEBOUNCE_MS = 300;
+
 export function RealizationsPage(): React.ReactElement {
   const [filters, setFilters] = useState<RealizationFiltersState>({ type: '', equipmentType: '', region: '' });
+  const [debouncedRegion, setDebouncedRegion] = useState('');
   const [items, setItems] = useState<ReadonlyArray<ApiRealization>>([]);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect((): (() => void) => {
+    const handle = setTimeout((): void => {
+      setDebouncedRegion(filters.region.trim());
+    }, DEBOUNCE_MS);
+    return (): void => { clearTimeout(handle); };
+  }, [filters.region]);
+
   useEffect((): void => {
-    listRealizations({
+    const params: Parameters<typeof listRealizations>[0] = {
       ...(filters.type === '' ? {} : { type: filters.type }),
       ...(filters.equipmentType === '' ? {} : { equipmentType: filters.equipmentType }),
-      ...(filters.region.trim() === '' ? {} : { region: filters.region.trim() }),
-    })
+      ...(debouncedRegion === '' ? {} : { region: debouncedRegion }),
+    };
+    listRealizations(params)
       .then((next) => { setItems(next); setError(null); })
       .catch((e: unknown) => { setError(e instanceof Error ? e.message : 'Erreur'); });
-  }, [filters]);
+  }, [filters.type, filters.equipmentType, debouncedRegion]);
 
   return (
     <section>

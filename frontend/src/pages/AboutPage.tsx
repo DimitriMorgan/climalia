@@ -28,7 +28,10 @@ export function AboutPage(): React.ReactElement {
       </article>
       <article>
         <h2>Couverture France</h2>
-        <FranceMap onSelect={setSelected} />
+        <FranceMap
+          onSelect={setSelected}
+          highlighted={selected !== null ? [selected] : []}
+        />
         {selected !== null ? <p>Région sélectionnée : <strong>{selected}</strong></p> : null}
       </article>
     </section>
