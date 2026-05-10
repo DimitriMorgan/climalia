@@ -82,9 +82,58 @@ make cache-clear   # vide le cache Symfony
 | POST | `/api/contact` | public | Demande de contact (rate-limit 5/15 min par IP) |
 | GET | `/api/realizations` | public | Liste filtrée des réalisations (`type`, `equipmentType`, `region`) |
 
+## Frontend (React 19 + Vite + TypeScript)
+
+Code: `frontend/`. Bundler **Vite**, dev server sur `http://localhost:5175`, conteneur `node:22-alpine` (`docker compose up -d node`). TypeScript strict + `noUncheckedIndexedAccess` + ESLint flat config (`@typescript-eslint/strictTypeChecked`) + Prettier.
+
+### Architecture
+
+```
+frontend/
+├── src/
+│   ├── api/         # client fetch typé (apiFetch + ApiError) + modules par ressource
+│   ├── components/  # Layout, NavBar, Footer, ProtectedRoute, FranceMap
+│   ├── features/    # auth, contact, documents, realizations, services
+│   ├── pages/       # une page = une route React Router 7
+│   ├── stores/      # zustand (authStore — JWT en mémoire uniquement)
+│   └── types/       # DTOs miroirs des entités Symfony
+├── tests/           # Jest 30 + RTL (env Node + per-file @jest-environment jsdom)
+└── cypress/         # e2e (5 specs)
+```
+
+### Commandes
+
+| Cible | Description |
+| --- | --- |
+| `make bash-front` | Shell dans le conteneur frontend |
+| `make typecheck`  | `tsc -b --noEmit` (strict + `noUncheckedIndexedAccess`) |
+| `make lint-front` | ESLint flat config |
+| `make test-front` | Jest + React Testing Library |
+| `make cypress`    | Cypress e2e (headless) |
+
+(Toutes ces cibles passent par `docker compose exec node ...`. En direct sur l'hôte : `cd frontend && npm run typecheck` etc.)
+
+### Identifiants démo (espace pro)
+
+Mot de passe : `demo` pour tous.
+
+| Rôle | Email |
+| --- | --- |
+| ADMIN | `admin@climalia.fr` |
+| EMPLOYEE Île-de-France | `employe.idf@climalia.fr` |
+| PARTNER syndic | `syndic@partner.fr` |
+
+> ⚠️ Le JWT est conservé **en mémoire** via Zustand (pas de `localStorage`/`sessionStorage`). Un rafraîchissement de page déconnecte volontairement l'utilisateur — c'est un choix sécurité assumé en attendant la mise en place de cookies httpOnly côté Symfony.
+
+### Couverture de tests
+
+- **23 tests Jest** (6 suites) : authStore, apiFetch, ProtectedRoute, ContactForm, LoginForm, DocumentList.
+- **5 specs Cypress** : soumission contact, login employé + dashboard, login partenaire + filtre région, redirection auth, expiration token + auto-logout.
+
 ## TODO (phases suivantes)
 
-- [ ] **Phase 2** — Frontend React 19 + Vite + Tailwind + intégration design (homepage, pages réalisations, formulaire contact, espace pro)
+- [x] **Phase 2 — bootstrap** — Frontend React 19 + Vite + TS strict + JWT in-memory, routes publiques, espace pro, tests Jest + Cypress (cf. _Frontend_)
+- [ ] **Phase 3** — Intégration design (palette, typo, animations, responsive) + déploiement Coolify
 - [ ] Stockage de fichiers (S3 / Coolify object storage) pour le download réel des documents
 - [ ] Mailer transactionnel (notifs de demande de contact)
 - [ ] Déploiement Coolify avec FrankenPHP en mode worker
