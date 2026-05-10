@@ -35,3 +35,13 @@ if (g['localStorage'] === undefined) {
 if (g['sessionStorage'] === undefined) {
   g['sessionStorage'] = new MemoryStorage();
 }
+
+// jsdom (used by component tests via per-file @jest-environment docblock) does not expose
+// Node's TextEncoder/TextDecoder on its window globals, but react-router/RTL need them.
+// Node 22 has them on the module scope — backfill onto the jest jsdom global.
+if (g['TextEncoder'] === undefined) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const util = require('node:util') as { TextEncoder: typeof TextEncoder; TextDecoder: typeof TextDecoder };
+  g['TextEncoder'] = util.TextEncoder;
+  g['TextDecoder'] = util.TextDecoder;
+}
