@@ -6,12 +6,15 @@ const sampleUser: ApiUser = {
   id: '01', email: 'a@b.c', firstName: 'A', lastName: 'B', role: 'ADMIN', region: null,
 };
 
+type FetchArgs = [input: string | URL | Request, init?: RequestInit];
+type FetchMock = jest.Mock<Promise<Response>, FetchArgs>;
+
 describe('apiFetch', (): void => {
-  const fetchMock = jest.fn();
+  const fetchMock: FetchMock = jest.fn<Promise<Response>, FetchArgs>();
   beforeEach((): void => {
     useAuthStore.getState().reset();
     fetchMock.mockReset();
-    global.fetch = fetchMock as unknown as typeof fetch;
+    (globalThis as unknown as { fetch: typeof fetch }).fetch = fetchMock;
   });
 
   test('returns parsed json on 200', async (): Promise<void> => {
@@ -26,7 +29,8 @@ describe('apiFetch', (): void => {
     await apiFetch('/api/secret');
     const call = fetchMock.mock.calls[0];
     if (call === undefined) throw new Error('fetch was not called');
-    const init = call[1] as RequestInit;
+    const init = call[1];
+    if (init === undefined) throw new Error('init missing');
     const headers = new Headers(init.headers);
     expect(headers.get('Authorization')).toBe('Bearer xyz.jwt.token');
   });
@@ -36,7 +40,8 @@ describe('apiFetch', (): void => {
     await apiFetch('/api/public');
     const call = fetchMock.mock.calls[0];
     if (call === undefined) throw new Error('fetch was not called');
-    const init = call[1] as RequestInit;
+    const init = call[1];
+    if (init === undefined) throw new Error('init missing');
     const headers = new Headers(init.headers);
     expect(headers.get('Authorization')).toBeNull();
   });
@@ -67,7 +72,8 @@ describe('apiFetch', (): void => {
     await apiFetch('/api/contact', { method: 'POST', body: JSON.stringify({ a: 1 }) });
     const call = fetchMock.mock.calls[0];
     if (call === undefined) throw new Error('fetch was not called');
-    const init = call[1] as RequestInit;
+    const init = call[1];
+    if (init === undefined) throw new Error('init missing');
     const headers = new Headers(init.headers);
     expect(headers.get('Content-Type')).toBe('application/json');
   });
