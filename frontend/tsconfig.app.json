@@ -30,5 +30,6 @@
     "allowImportingTsExtensions": false,
     "moduleDetection": "force"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["cypress"]
 }
