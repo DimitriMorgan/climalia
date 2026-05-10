@@ -37,19 +37,20 @@ describe('ContactForm', (): void => {
   test('renders server validation errors on 422', async (): Promise<void> => {
     (global.fetch as jest.Mock).mockResolvedValueOnce(
       new Response(
-        JSON.stringify({ violations: [{ propertyPath: 'email', title: 'Email invalide' }] }),
+        JSON.stringify({ violations: [{ propertyPath: 'email', title: 'Email déjà enregistré' }] }),
         { status: 422, headers: { 'content-type': 'application/json' } },
       ),
     );
     const user = userEvent.setup();
     render(<ContactForm />);
     await user.type(screen.getByLabelText(/nom/i), 'Jean Dupont');
-    await user.type(screen.getByLabelText(/email/i), 'not-an-email');
+    await user.type(screen.getByLabelText(/email/i), 'jean@example.com');
     await user.type(screen.getByLabelText(/téléphone/i), '0612345678');
     await user.type(screen.getByLabelText(/code postal/i), '75011');
     await user.selectOptions(screen.getByLabelText(/type de projet/i), 'INSTALLATION_AC');
     await user.type(screen.getByLabelText(/message/i), 'Bonjour.');
     await user.click(screen.getByRole('button', { name: /envoyer/i }));
-    expect(await screen.findByText(/email invalide/i)).toBeInTheDocument();
+    expect(await screen.findByText(/email déjà enregistré/i)).toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalled();
   });
 });
