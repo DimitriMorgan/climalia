@@ -7,10 +7,9 @@ interface AuthState {
   login: (token: string, user: ApiUser) => void;
   logout: () => void;
   reset: () => void;
-  isAuthenticated: () => boolean;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   user: null,
   login: (token, user): void => {
@@ -22,5 +21,4 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   reset: (): void => {
     set({ token: null, user: null });
   },
-  isAuthenticated: (): boolean => get().token !== null,
 }));

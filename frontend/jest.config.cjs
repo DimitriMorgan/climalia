@@ -13,16 +13,7 @@ module.exports = {
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       useESM: true,
-      tsconfig: {
-        jsx: 'react-jsx',
-        module: 'ESNext',
-        target: 'ES2022',
-        moduleResolution: 'node',
-        esModuleInterop: true,
-        baseUrl: '.',
-        paths: { '@/*': ['src/*'] },
-        types: ['jest', 'node'],
-      },
+      tsconfig: '<rootDir>/tsconfig.test.json',
     }],
   },
   extensionsToTreatAsEsm: ['.ts', '.tsx'],

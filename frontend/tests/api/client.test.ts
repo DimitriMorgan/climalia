@@ -50,7 +50,7 @@ describe('apiFetch', (): void => {
     useAuthStore.getState().login('xyz.jwt.token', sampleUser);
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ message: 'expired' }), { status: 401, headers: { 'content-type': 'application/json' } }));
     await expect(apiFetch('/api/secret')).rejects.toBeInstanceOf(ApiError);
-    expect(useAuthStore.getState().isAuthenticated()).toBe(false);
+    expect(useAuthStore.getState().token).toBeNull();
   });
 
   test('on 422 surfaces validation violations', async (): Promise<void> => {

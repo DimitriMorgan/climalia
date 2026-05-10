@@ -19,7 +19,6 @@ describe('authStore', (): void => {
     const state = useAuthStore.getState();
     expect(state.token).toBeNull();
     expect(state.user).toBeNull();
-    expect(state.isAuthenticated()).toBe(false);
   });
 
   test('login sets token and user', (): void => {
@@ -27,7 +26,7 @@ describe('authStore', (): void => {
     const state = useAuthStore.getState();
     expect(state.token).toBe('jwt.token.here');
     expect(state.user).toEqual(sampleUser);
-    expect(state.isAuthenticated()).toBe(true);
+    expect(state.token).not.toBeNull();
   });
 
   test('logout clears state', (): void => {
@@ -36,7 +35,6 @@ describe('authStore', (): void => {
     const state = useAuthStore.getState();
     expect(state.token).toBeNull();
     expect(state.user).toBeNull();
-    expect(state.isAuthenticated()).toBe(false);
   });
 
   test('does NOT touch localStorage or sessionStorage', (): void => {

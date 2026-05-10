@@ -65,7 +65,7 @@ export async function apiFetch<T>(input: string, init: RequestInit = {}): Promis
   if (token !== null) {
     headers.set('Authorization', `Bearer ${token}`);
   }
-  if (init.body !== undefined && !headers.has('Content-Type')) {
+  if (typeof init.body === 'string' && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
   headers.set('Accept', 'application/json');
