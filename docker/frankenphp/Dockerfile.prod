@@ -1,0 +1,128 @@
+# syntax=docker/dockerfile:1.7
+# =============================================================================
+# Climalia — production image (FrankenPHP unified : API Symfony + SPA React)
+# =============================================================================
+
+ARG FRANKENPHP_IMAGE=dunglas/frankenphp:1.12-php8.4-trixie
+
+# -----------------------------------------------------------------------------
+# Stage 1 — node-builder : build du SPA React (Vite)
+# -----------------------------------------------------------------------------
+FROM node:22-alpine AS node-builder
+
+WORKDIR /frontend
+
+ARG VITE_API_BASE_URL=https://climalia.dimitrifruit.dev/api
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY frontend/ ./
+RUN npm run build
+
+# -----------------------------------------------------------------------------
+# Stage 2 — composer-builder : installe les deps PHP + warmup partiel
+# FIX bug #1 : APP_RUNTIME_OPTIONS=disable_dotenv + ENV dummy pour les vars
+# requises par le bootstrap Symfony (sinon PathException sur .env absent).
+# -----------------------------------------------------------------------------
+FROM ${FRANKENPHP_IMAGE} AS composer-builder
+
+RUN install-php-extensions \
+        intl \
+        opcache \
+        pdo_pgsql \
+        zip \
+        sodium
+
+COPY --from=composer:2.9 /usr/bin/composer /usr/bin/composer
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV APP_ENV=prod \
+    APP_DEBUG=0 \
+    APP_RUNTIME_OPTIONS="{\"disable_dotenv\":true}" \
+    APP_SECRET=build-time-secret \
+    DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?serverVersion=16&charset=utf8" \
+    DEFAULT_URI=https://climalia.dimitrifruit.dev \
+    JWT_SECRET_KEY=/tmp/jwt-build/private.pem \
+    JWT_PUBLIC_KEY=/tmp/jwt-build/public.pem \
+    JWT_PASSPHRASE=build-time-passphrase \
+    JWT_TTL=3600 \
+    CORS_ALLOW_ORIGIN="^https://climalia\\.dimitrifruit\\.dev$" \
+    MAILER_DSN=null://null
+
+WORKDIR /app
+
+# Couche cache : composer install sans le code applicatif
+COPY backend/composer.json backend/composer.lock backend/symfony.lock ./
+RUN composer install \
+        --no-dev \
+        --no-scripts \
+        --no-interaction \
+        --prefer-dist \
+        --no-progress
+
+# Code applicatif puis autoload optimisé + warmup
+COPY backend/ ./
+RUN composer dump-autoload --optimize --classmap-authoritative --no-dev \
+    && php bin/console cache:clear --env=prod --no-debug --no-interaction \
+    && php bin/console assets:install public --env=prod --no-interaction \
+    && rm -rf var/cache/* var/log/*
+
+# -----------------------------------------------------------------------------
+# Stage 3 — runtime final : FrankenPHP sert API + SPA
+# -----------------------------------------------------------------------------
+FROM ${FRANKENPHP_IMAGE} AS runtime
+
+RUN install-php-extensions \
+        intl \
+        opcache \
+        pdo_pgsql \
+        zip \
+        sodium
+
+# rsync requis par l'entrypoint (FIX bug #2 : rsync --delete partout)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends rsync \
+    && rm -rf /var/lib/apt/lists/*
+
+# OPcache prod : pas de validation de timestamps, gros cache
+RUN { \
+        echo "opcache.enable=1"; \
+        echo "opcache.enable_cli=1"; \
+        echo "opcache.memory_consumption=128"; \
+        echo "opcache.max_accelerated_files=20000"; \
+        echo "opcache.validate_timestamps=0"; \
+        echo "opcache.interned_strings_buffer=16"; \
+        echo "realpath_cache_size=4096K"; \
+        echo "realpath_cache_ttl=600"; \
+    } > /usr/local/etc/php/conf.d/zz-opcache-prod.ini
+
+# Filet de sécurité : runtime aussi en mode disable_dotenv
+ENV APP_ENV=prod \
+    APP_DEBUG=0 \
+    APP_RUNTIME_OPTIONS="{\"disable_dotenv\":true}"
+
+WORKDIR /app
+
+# Code Symfony + vendor depuis le composer-builder
+COPY --from=composer-builder /app /app
+
+# Build SPA dans /app/public/spa
+COPY --from=node-builder /frontend/dist /app/public/spa
+
+# Caddyfile interne + entrypoint
+COPY docker/frankenphp/Caddyfile.prod /etc/caddy/Caddyfile
+COPY docker/frankenphp/entrypoint.prod.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# www-data existe déjà dans l'image FrankenPHP (Debian)
+RUN chown -R www-data:www-data /app/var /app/public
+
+EXPOSE 8000
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]

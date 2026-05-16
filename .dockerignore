@@ -1,0 +1,46 @@
+# Climalia — racine .dockerignore (build context = .)
+
+# Git / IDE / OS
+.git
+.gitignore
+.gitattributes
+.github
+.idea
+.vscode
+*.iml
+.DS_Store
+Thumbs.db
+
+# Node / Frontend artefacts
+node_modules
+frontend/node_modules
+frontend/dist
+frontend/cypress/screenshots
+frontend/cypress/videos
+
+# PHP / Backend artefacts
+backend/vendor
+backend/var
+backend/.phpunit.cache
+.phpunit.cache
+
+# Secrets / env locaux
+.env
+.env.local
+.env.*.local
+.env.prod
+.env.prod.local
+backend/.env.local
+backend/.env.*.local
+backend/config/jwt/*.pem
+
+# Docker compose / scripts dev qui n'ont rien à faire dans l'image
+docker-compose.yml
+compose.override.yaml
+start.ps1
+
+# Docs / outils dev
+docs
+Makefile
+README.md
+*.md

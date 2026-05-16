@@ -1,0 +1,34 @@
+# Caddyfile interne FrankenPHP (prod) — Climalia
+# Ce serveur écoute sur :8000 derrière le Caddy externe du VPS qui fait le TLS.
+
+{
+	frankenphp
+	auto_https off
+	admin off
+	order php_server before file_server
+}
+
+:8000 {
+	log {
+		output stderr
+		format console
+		level INFO
+	}
+
+	encode gzip zstd
+
+	# --- API Symfony : /api/* -> front controller index.php ---
+	@api path /api /api/*
+	handle @api {
+		root * /app/public
+		rewrite * /index.php
+		php_server
+	}
+
+	# --- SPA React : tout le reste -> /app/public/spa avec fallback index.html ---
+	handle {
+		root * /app/public/spa
+		try_files {path} /index.html
+		file_server
+	}
+}

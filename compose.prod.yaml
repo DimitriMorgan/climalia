@@ -1,0 +1,67 @@
+# Climalia — production stack
+# Usage : docker compose -f compose.prod.yaml --env-file .env.prod up -d
+# Le Caddy externe du VPS (/opt/projects/_caddy) fait reverse_proxy vers climalia-app:8000.
+
+name: climalia
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: climalia-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - climalia_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - climalia_internal
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/frankenphp/Dockerfile.prod
+      args:
+        VITE_API_BASE_URL: https://climalia.dimitrifruit.dev/api
+    image: climalia/app:prod
+    container_name: climalia-app
+    restart: unless-stopped
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: 0
+      APP_SECRET: ${APP_SECRET}
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET_KEY: /app/config/jwt/private.pem
+      JWT_PUBLIC_KEY: /app/config/jwt/public.pem
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE}
+      JWT_TTL: ${JWT_TTL:-3600}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN}
+      MAILER_DSN: ${MAILER_DSN:-null://null}
+      DEFAULT_URI: ${DEFAULT_URI:-https://climalia.dimitrifruit.dev}
+      SERVER_NAME: :8000
+    volumes:
+      - climalia_var:/app/var
+      - climalia_jwt:/app/config/jwt
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - climalia_internal
+      - web
+
+networks:
+  climalia_internal:
+    driver: bridge
+  web:
+    external: true
+
+volumes:
+  climalia_postgres_data:
+  climalia_var:
+  climalia_jwt:

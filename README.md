@@ -130,11 +130,83 @@ Mot de passe : `demo` pour tous.
 - **23 tests Jest** (6 suites) : authStore, apiFetch, ProtectedRoute, ContactForm, LoginForm, DocumentList.
 - **5 specs Cypress** : soumission contact, login employé + dashboard, login partenaire + filtre région, redirection auth, expiration token + auto-logout.
 
+## Déploiement production
+
+Cible : `https://climalia.dimitrifruit.dev` — VPS Hetzner, derrière le Caddy partagé (`/opt/projects/_caddy`).
+
+### Architecture
+
+```
+Internet → Caddy externe (VPS, TLS auto)
+              └─ reverse_proxy climalia-app:8000
+                    └─ FrankenPHP
+                         ├─ /api/* → Symfony (front controller /app/public/index.php)
+                         └─ /*     → SPA React (build statique /app/public/spa)
+         + PostgreSQL 16 (container climalia-db)
+```
+
+2 containers seulement (`climalia-app` + `climalia-db`), pas de nginx séparé — FrankenPHP embarque Caddy.
+
+### Prérequis
+
+- VPS configuré avec alias SSH `vps` dans `~/.ssh/config`
+- Network Docker externe `web` créé par le stack Caddy (`/opt/projects/_caddy`)
+- DNS `climalia.dimitrifruit.dev` résolu (déjà couvert par le wildcard `*.dimitrifruit.dev` côté Cloudflare)
+
+### Étapes (first deploy)
+
+1. **Sur le VPS** : créer le dossier projet
+   ```bash
+   ssh vps "mkdir -p /opt/projects/climalia"
+   ```
+
+2. **Créer `/opt/projects/climalia/.env.prod`** (basé sur `.env.prod.example`). Générer les secrets :
+   ```bash
+   openssl rand -hex 32            # APP_SECRET
+   openssl rand -base64 32         # POSTGRES_PASSWORD, JWT_PASSPHRASE
+   ```
+   Reporter `POSTGRES_PASSWORD` dans `DATABASE_URL` aussi.
+
+3. **Déployer depuis le local** :
+   ```bash
+   ./scripts/deploy.sh
+   ```
+   Le script rsync le code → build les images → up → migrations. Au premier `up`, l'entrypoint du container `app` génère automatiquement les clés JWT dans le volume persistent `climalia_jwt` (pas besoin d'action manuelle).
+
+4. **Brancher le Caddy externe** : ajouter dans `/opt/projects/_caddy/Caddyfile` :
+   ```caddy
+   climalia.dimitrifruit.dev {
+       encode gzip zstd
+       reverse_proxy climalia-app:8000
+   }
+   ```
+   Puis reload :
+   ```bash
+   ssh vps "cd /opt/projects/_caddy && docker compose restart"
+   ```
+
+5. **Vérifier** : `curl https://climalia.dimitrifruit.dev/api/realizations` doit renvoyer du JSON.
+
+### Redéploiements
+
+`./scripts/deploy.sh` est idempotent. Le volume `climalia_jwt` survit, donc les tokens existants restent valides. Si les clés JWT sont compromises, supprimer le volume (`docker volume rm climalia_climalia_jwt`) — l'entrypoint en régénérera au prochain up.
+
+### Fichiers prod
+
+| Fichier | Rôle |
+| --- | --- |
+| `compose.prod.yaml` | Stack 2 services (db + app), volumes persistants, network `web` |
+| `docker/frankenphp/Dockerfile.prod` | Multi-stage : node-builder → composer-builder → runtime FrankenPHP |
+| `docker/frankenphp/Caddyfile.prod` | Routing interne `/api/*` → Symfony, reste → SPA |
+| `docker/frankenphp/entrypoint.prod.sh` | Génération JWT au premier run, warmup cache, chown var |
+| `scripts/deploy.sh` | rsync code → build → up → migrations |
+| `.env.prod.example` | Template (les vraies valeurs vivent uniquement sur le VPS) |
+
 ## TODO (phases suivantes)
 
 - [x] **Phase 2 — bootstrap** — Frontend React 19 + Vite + TS strict + JWT in-memory, routes publiques, espace pro, tests Jest + Cypress (cf. _Frontend_)
-- [ ] **Phase 3** — Intégration design (palette, typo, animations, responsive) + déploiement Coolify
-- [ ] Stockage de fichiers (S3 / Coolify object storage) pour le download réel des documents
+- [ ] **Phase 3** — Intégration design (palette, typo, animations, responsive)
+- [ ] Stockage de fichiers (S3 / object storage) pour le download réel des documents
 - [ ] Mailer transactionnel (notifs de demande de contact)
-- [ ] Déploiement Coolify avec FrankenPHP en mode worker
+- [ ] FrankenPHP en mode worker (gain de perf significatif sur Symfony)
 - [ ] CI : GitHub Actions (lint + tests + PHPStan)
