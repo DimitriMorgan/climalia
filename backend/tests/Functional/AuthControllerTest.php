@@ -60,4 +60,38 @@ final class AuthControllerTest extends ApiTestCase
         $this->client->request('POST', '/api/auth/logout');
         self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
     }
+
+    #[Test]
+    public function login_compte_desactive_refuse(): void
+    {
+        $em = self::getContainer()->get(\Doctrine\ORM\EntityManagerInterface::class);
+        \assert($em instanceof \Doctrine\ORM\EntityManagerInterface);
+        $repo = self::getContainer()->get(\App\Repository\UserRepository::class);
+        \assert($repo instanceof \App\Repository\UserRepository);
+        $partner = $repo->findByEmail('syndic@partner.fr');
+        self::assertNotNull($partner);
+        $partner->setActive(false);
+        $em->flush();
+
+        $this->client->jsonRequest('POST', '/api/auth/login', [
+            'email' => 'syndic@partner.fr',
+            'password' => 'demo',
+        ]);
+        self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
+    }
+
+    #[Test]
+    public function token_existant_d_un_compte_desactive_refuse(): void
+    {
+        // Le token est émis PUIS le compte est désactivé : les requêtes suivantes
+        // doivent être refusées (user_checker sur le firewall JWT).
+        $em = self::getContainer()->get(\Doctrine\ORM\EntityManagerInterface::class);
+        \assert($em instanceof \Doctrine\ORM\EntityManagerInterface);
+        $partner = $this->authenticateAs('syndic@partner.fr');
+        $partner->setActive(false);
+        $em->flush();
+
+        $this->client->request('GET', '/api/auth/me');
+        self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
+    }
 }
