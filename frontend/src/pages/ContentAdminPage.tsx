@@ -69,14 +69,17 @@ export function ContentAdminPage(): React.ReactElement {
     if (target == null) return;
     // Brouillons par-dessus les overrides enregistrés : ce que verra le site
     // une fois « Enregistrer » cliqué.
-    const merged: Record<string, string> = { ...overrides };
-    for (const [key, value] of Object.entries(drafts)) {
-      if (value.trim() === '' || value === CONTENT_DEFAULTS[key as ContentKey]) {
-        delete merged[key];
-      } else {
-        merged[key] = value;
-      }
-    }
+    // Un brouillon vide ou revenu au texte par defaut retire la cle, y compris
+    // quand un override etait enregistre : c'est un retour au defaut.
+    const merged: Record<string, string> = Object.fromEntries(
+      Object.entries({ ...overrides, ...drafts }).filter(([key]) => {
+        const draft = drafts[key];
+        return (
+          draft === undefined ||
+          (draft.trim() !== '' && draft !== CONTENT_DEFAULTS[key as ContentKey])
+        );
+      }),
+    );
     target.postMessage(
       { type: 'climalia:content-preview', overrides: merged, scrollSelector },
       window.location.origin,
