@@ -9,6 +9,8 @@ enum UserRole: string
     case EMPLOYEE = 'EMPLOYEE';
     case PARTNER = 'PARTNER';
     case ADMIN = 'ADMIN';
+    case EDITOR = 'EDITOR';
+    case CLIENT = 'CLIENT';
 
     public function asSecurityRole(): string
     {

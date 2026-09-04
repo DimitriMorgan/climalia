@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Enum\DocumentAudience;
 use App\Enum\DocumentCategory;
 use App\Enum\UserRole;
 use App\Repository\DocumentRepository;
 use DateTimeImmutable;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -28,9 +31,17 @@ class Document
     #[ORM\Column(type: 'string', enumType: DocumentCategory::class, length: 64)]
     private DocumentCategory $category;
 
-    #[ORM\Column(length: 1024)]
-    #[Assert\NotBlank]
-    private string $fileUrl;
+    /** INTERNAL = ressource interne/partagée (rôle/région) ; CLIENT = livrable affecté à des entreprises. */
+    #[ORM\Column(type: 'string', enumType: DocumentAudience::class, length: 16)]
+    private DocumentAudience $audience = DocumentAudience::INTERNAL;
+
+    /** URL externe (docs hérités/distants). Les fichiers uploadés utilisent storagePath. */
+    #[ORM\Column(length: 1024, nullable: true)]
+    private ?string $fileUrl = null;
+
+    /** Chemin de stockage privé (hors public/) pour les fichiers réellement uploadés. */
+    #[ORM\Column(length: 1024, nullable: true)]
+    private ?string $storagePath = null;
 
     #[ORM\Column(length: 128)]
     private string $mimeType;
@@ -40,6 +51,13 @@ class Document
 
     #[ORM\Column(type: 'datetime_immutable')]
     private DateTimeImmutable $uploadedAt;
+
+    /**
+     * Date « métier » du document (échéance, date d'intervention, période du
+     * planning…), distincte de la date d'upload. Alimente le calendrier admin.
+     */
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?DateTimeImmutable $documentDate = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'owner_user_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
@@ -57,17 +75,27 @@ class Document
     private ?string $region = null;
 
     /**
+     * Entreprises clientes auxquelles ce document a été affecté (dispatch).
+     *
+     * @var Collection<int, Client>
+     */
+    #[ORM\ManyToMany(targetEntity: Client::class)]
+    #[ORM\JoinTable(name: 'document_assigned_clients')]
+    private Collection $assignedClients;
+
+    /**
      * @param list<UserRole> $visibleToRoles
      */
     public function __construct(
         string $title,
         DocumentCategory $category,
-        string $fileUrl,
+        ?string $fileUrl,
         string $mimeType,
         int $sizeBytes,
         ?User $ownerUser = null,
         array $visibleToRoles = [],
         ?string $region = null,
+        DocumentAudience $audience = DocumentAudience::INTERNAL,
     ) {
         $this->id = Uuid::v7();
         $this->title = $title;
@@ -78,6 +106,8 @@ class Document
         $this->ownerUser = $ownerUser;
         $this->visibleToRoles = array_map(static fn (UserRole $r): string => $r->value, $visibleToRoles);
         $this->region = $region;
+        $this->audience = $audience;
+        $this->assignedClients = new ArrayCollection();
         $this->uploadedAt = new DateTimeImmutable();
     }
 
@@ -96,9 +126,14 @@ class Document
         return $this->category;
     }
 
-    public function getFileUrl(): string
+    public function getFileUrl(): ?string
     {
         return $this->fileUrl;
+    }
+
+    public function setFileUrl(?string $fileUrl): void
+    {
+        $this->fileUrl = $fileUrl;
     }
 
     public function getMimeType(): string
@@ -111,9 +146,24 @@ class Document
         return $this->sizeBytes;
     }
 
+    public function setSizeBytes(int $sizeBytes): void
+    {
+        $this->sizeBytes = $sizeBytes;
+    }
+
     public function getUploadedAt(): DateTimeImmutable
     {
         return $this->uploadedAt;
+    }
+
+    public function getDocumentDate(): ?DateTimeImmutable
+    {
+        return $this->documentDate;
+    }
+
+    public function setDocumentDate(?DateTimeImmutable $documentDate): void
+    {
+        $this->documentDate = $documentDate;
     }
 
     public function getOwnerUser(): ?User
@@ -163,5 +213,61 @@ class Document
     public function setRegion(?string $region): void
     {
         $this->region = $region;
+    }
+
+    public function getStoragePath(): ?string
+    {
+        return $this->storagePath;
+    }
+
+    public function setStoragePath(?string $storagePath): void
+    {
+        $this->storagePath = $storagePath;
+    }
+
+    public function getAudience(): DocumentAudience
+    {
+        return $this->audience;
+    }
+
+    public function setAudience(DocumentAudience $audience): void
+    {
+        $this->audience = $audience;
+    }
+
+    /**
+     * @return Collection<int, Client>
+     */
+    public function getAssignedClients(): Collection
+    {
+        return $this->assignedClients;
+    }
+
+    public function addAssignedClient(Client $client): void
+    {
+        if (!$this->assignedClients->contains($client)) {
+            $this->assignedClients->add($client);
+        }
+    }
+
+    public function removeAssignedClient(Client $client): void
+    {
+        $this->assignedClients->removeElement($client);
+    }
+
+    public function clearAssignedClients(): void
+    {
+        $this->assignedClients->clear();
+    }
+
+    public function isAssignedToClient(Client $client): bool
+    {
+        foreach ($this->assignedClients as $assigned) {
+            if ($assigned->getId()->equals($client->getId())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

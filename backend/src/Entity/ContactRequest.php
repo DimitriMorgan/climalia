@@ -50,6 +50,10 @@ class ContactRequest
     #[ORM\Column(type: 'string', enumType: ContactStatus::class, length: 32)]
     private ContactStatus $status;
 
+    /** Date de la dernière réponse envoyée depuis l'admin (null = jamais répondu). */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?DateTimeImmutable $repliedAt = null;
+
     public function __construct(
         string $fullName,
         string $email,
@@ -59,6 +63,7 @@ class ContactRequest
         string $message,
         ?int $surface = null,
         ?DateTimeImmutable $deadline = null,
+        ?DateTimeImmutable $createdAt = null,
     ) {
         $this->id = Uuid::v7();
         $this->fullName = $fullName;
@@ -69,7 +74,7 @@ class ContactRequest
         $this->message = $message;
         $this->surface = $surface;
         $this->deadline = $deadline;
-        $this->createdAt = new DateTimeImmutable();
+        $this->createdAt = $createdAt ?? new DateTimeImmutable();
         $this->status = ContactStatus::NEW;
     }
 
@@ -131,5 +136,19 @@ class ContactRequest
     public function setStatus(ContactStatus $status): void
     {
         $this->status = $status;
+    }
+
+    public function getRepliedAt(): ?DateTimeImmutable
+    {
+        return $this->repliedAt;
+    }
+
+    public function markReplied(): void
+    {
+        $this->repliedAt = new DateTimeImmutable();
+        // Une demande « nouvelle » à laquelle on répond passe en « contacté ».
+        if ($this->status === ContactStatus::NEW) {
+            $this->status = ContactStatus::CONTACTED;
+        }
     }
 }

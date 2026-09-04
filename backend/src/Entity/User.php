@@ -46,6 +46,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $region = null;
 
+    /** Entreprise cliente de rattachement — pour les comptes CLIENT uniquement. */
+    #[ORM\ManyToOne(targetEntity: Client::class)]
+    #[ORM\JoinColumn(name: 'client_id', referencedColumnName: 'id', nullable: true, onDelete: 'CASCADE')]
+    private ?Client $client = null;
+
+    /** Compte désactivé = connexion refusée (cf. App\Security\UserChecker). */
+    #[ORM\Column(options: ['default' => true])]
+    private bool $active = true;
+
+    /** Contacts clients : reçoit les e-mails de notification de nouveaux documents. */
+    #[ORM\Column(options: ['default' => true])]
+    private bool $notifyOnNewDocument = true;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private DateTimeImmutable $createdAt;
 
@@ -56,6 +69,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         string $firstName,
         string $lastName,
         ?string $region = null,
+        ?Client $client = null,
     ) {
         $this->id = Uuid::v7();
         $this->email = strtolower($email);
@@ -64,6 +78,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->firstName = $firstName;
         $this->lastName = $lastName;
         $this->region = $region;
+        $this->client = $client;
         $this->createdAt = new DateTimeImmutable();
     }
 
@@ -132,9 +147,39 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->region = $region;
     }
 
+    public function getClient(): ?Client
+    {
+        return $this->client;
+    }
+
+    public function setClient(?Client $client): void
+    {
+        $this->client = $client;
+    }
+
     public function getCreatedAt(): DateTimeImmutable
     {
         return $this->createdAt;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->active;
+    }
+
+    public function setActive(bool $active): void
+    {
+        $this->active = $active;
+    }
+
+    public function isNotifyOnNewDocument(): bool
+    {
+        return $this->notifyOnNewDocument;
+    }
+
+    public function setNotifyOnNewDocument(bool $notify): void
+    {
+        $this->notifyOnNewDocument = $notify;
     }
 
     /**

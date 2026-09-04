@@ -109,4 +109,44 @@ class Realization
     {
         return $this->publishedAt;
     }
+
+    public function setTitle(string $title): void
+    {
+        $this->title = $title;
+    }
+
+    public function setDescription(string $description): void
+    {
+        $this->description = $description;
+    }
+
+    public function setType(RealizationType $type): void
+    {
+        $this->type = $type;
+    }
+
+    public function setEquipmentType(EquipmentType $equipmentType): void
+    {
+        $this->equipmentType = $equipmentType;
+    }
+
+    public function setRegion(string $region): void
+    {
+        $this->region = $region;
+    }
+
+    public function setBeforeImageUrl(?string $beforeImageUrl): void
+    {
+        $this->beforeImageUrl = $beforeImageUrl;
+    }
+
+    public function setAfterImageUrl(?string $afterImageUrl): void
+    {
+        $this->afterImageUrl = $afterImageUrl;
+    }
+
+    public function setPublishedAt(DateTimeImmutable $publishedAt): void
+    {
+        $this->publishedAt = $publishedAt;
+    }
 }
