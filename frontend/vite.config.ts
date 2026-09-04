@@ -20,6 +20,12 @@ export default defineConfig({
         target: apiTarget,
         changeOrigin: true,
       },
+      // Images uploadées (réalisations, contenu) servies par le backend.
+      // En prod c'est same-origin ; en dev on proxifie comme /api.
+      '/uploads': {
+        target: apiTarget,
+        changeOrigin: true,
+      },
     },
   },
 });

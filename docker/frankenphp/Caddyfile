@@ -5,6 +5,7 @@
     # Pas de TLS auto en dev local
     auto_https off
     admin off
+    order php_server before file_server
 }
 
 {$SERVER_NAME:localhost:8000} {
@@ -13,12 +14,22 @@
         format console
     }
 
-    root * /app/public
     encode zstd br gzip
 
-    # Active le PHP via FrankenPHP
-    php_server {
-        # Monte le routeur Symfony
-        try_files {path} index.php
+    # Médias uploadés : servis en statique uniquement, jamais exécutés par PHP
+    # (parité avec la prod ; le dossier public/uploads est inscriptible).
+    @uploads path /uploads/*
+    handle @uploads {
+        header X-Content-Type-Options nosniff
+        root * /app/public
+        file_server
+    }
+
+    # Reste : front controller Symfony via FrankenPHP
+    handle {
+        root * /app/public
+        php_server {
+            try_files {path} index.php
+        }
     }
 }

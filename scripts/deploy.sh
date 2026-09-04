@@ -17,7 +17,7 @@ COMPOSE="docker compose -f compose.prod.yaml --env-file .env.prod"
 
 cd "$(dirname "$0")/.."
 
-echo "→ [1/5] Sync code → ${REMOTE_HOST}:${REMOTE_BASE}"
+echo "→ [1/6] Sync code → ${REMOTE_HOST}:${REMOTE_BASE}"
 rsync -az --delete \
 	--exclude '.git/' \
 	--exclude '.idea/' \
@@ -37,18 +37,21 @@ rsync -az --delete \
 	--exclude '.phpunit.cache' \
 	./ "${REMOTE_HOST}:${REMOTE_BASE}/"
 
-echo "→ [2/5] Build images"
+echo "→ [2/6] Build images"
 ssh "${REMOTE_HOST}" "cd ${REMOTE_BASE} && ${COMPOSE} build"
 
-echo "→ [3/5] Up (db + app, recreate si besoin)"
+echo "→ [3/6] Up (db + app, recreate si besoin)"
 ssh "${REMOTE_HOST}" "cd ${REMOTE_BASE} && ${COMPOSE} up -d --remove-orphans"
 
-echo "→ [4/5] Migrations Doctrine"
+echo "→ [4/6] Migrations Doctrine"
 # Petit délai pour laisser le healthcheck postgres + l'entrypoint app terminer
 sleep 5
 ssh "${REMOTE_HOST}" "cd ${REMOTE_BASE} && ${COMPOSE} exec -T app php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration"
 
-echo "→ [5/5] État"
+echo "→ [5/6] Seed comptes de démonstration (idempotent)"
+ssh "${REMOTE_HOST}" "cd ${REMOTE_BASE} && ${COMPOSE} exec -T app php bin/console app:seed-demo"
+
+echo "→ [6/6] État"
 ssh "${REMOTE_HOST}" "cd ${REMOTE_BASE} && ${COMPOSE} ps"
 
 echo "✓ Déploiement terminé : https://climalia.dimitrifruit.dev"

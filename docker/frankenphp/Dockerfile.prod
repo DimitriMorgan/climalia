@@ -15,6 +15,10 @@ WORKDIR /frontend
 ARG VITE_API_BASE_URL=https://climalia.dimitrifruit.dev/api
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
+# Cypress n'est qu'une devDependency (types nécessaires à `tsc -b`) : on évite le
+# téléchargement du binaire (~100+ Mo, inutile pour builder le SPA).
+ENV CYPRESS_INSTALL_BINARY=0
+
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 

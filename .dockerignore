@@ -24,6 +24,10 @@ backend/var
 backend/.phpunit.cache
 .phpunit.cache
 
+# Médias uploadés (servis depuis un volume en prod) — ne pas embarquer dans l'image
+backend/public/uploads/*
+!backend/public/uploads/.gitignore
+
 # Secrets / env locaux
 .env
 .env.local

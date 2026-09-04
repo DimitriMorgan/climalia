@@ -25,6 +25,14 @@
 		php_server
 	}
 
+	# --- Médias uploadés : /uploads/* -> /app/public/uploads en statique ---
+	@uploads path /uploads/*
+	handle @uploads {
+		header X-Content-Type-Options nosniff
+		root * /app/public
+		file_server
+	}
+
 	# --- SPA React : tout le reste -> /app/public/spa avec fallback index.html ---
 	handle {
 		root * /app/public/spa

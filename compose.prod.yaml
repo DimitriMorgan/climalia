@@ -42,12 +42,15 @@ services:
       JWT_PASSPHRASE: ${JWT_PASSPHRASE}
       JWT_TTL: ${JWT_TTL:-3600}
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN}
+      # Requis par le rate-limiter du formulaire de contact (verrou local suffisant : 1 conteneur).
+      LOCK_DSN: ${LOCK_DSN:-flock}
       MAILER_DSN: ${MAILER_DSN:-null://null}
       DEFAULT_URI: ${DEFAULT_URI:-https://climalia.dimitrifruit.dev}
       SERVER_NAME: :8000
     volumes:
       - climalia_var:/app/var
       - climalia_jwt:/app/config/jwt
+      - climalia_uploads:/app/public/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -65,3 +68,4 @@ volumes:
   climalia_postgres_data:
   climalia_var:
   climalia_jwt:
+  climalia_uploads:
