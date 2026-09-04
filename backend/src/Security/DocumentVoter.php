@@ -14,8 +14,9 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 /**
  * Règles de visibilité d'un Document :
  *  - ADMIN : voit tout
- *  - EMPLOYEE : voit s'il est ownerUser, OU si visibleToRoles contient EMPLOYEE
+ *  - EMPLOYEE : voit s'il est ownerUser (uploadeur), OU si visibleToRoles contient EMPLOYEE
  *  - PARTNER : voit s'il est ownerUser, OU si visibleToRoles contient PARTNER
+ *  - CLIENT : voit s'il est ownerUser, OU si le document lui a été affecté (assignedClients)
  *
  * @extends Voter<string, Document>
  */
@@ -49,6 +50,14 @@ final class DocumentVoter extends Voter
             return true;
         }
 
+        // Un client voit les documents affectés à SON entreprise (dispatch).
+        if ($role === UserRole::CLIENT) {
+            $client = $user->getClient();
+
+            return $client !== null && $subject->isAssignedToClient($client);
+        }
+
+        // EMPLOYEE / PARTNER : ressources internes ou partagées (visibilité par rôle).
         return $subject->isVisibleTo($role);
     }
 }

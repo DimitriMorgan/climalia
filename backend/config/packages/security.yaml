@@ -11,6 +11,10 @@ security:
                 class: App\Entity\User
                 property: email
 
+    # Un admin administratif peut aussi gérer le contenu éditorial.
+    role_hierarchy:
+        ROLE_ADMIN: [ROLE_EDITOR]
+
     firewalls:
         dev:
             pattern: ^/(_profiler|_wdt|assets|build)/
@@ -19,6 +23,7 @@ security:
         api_login:
             pattern: ^/api/auth/login$
             stateless: true
+            user_checker: App\Security\UserChecker
             json_login:
                 check_path: /api/auth/login
                 username_path: email
@@ -29,6 +34,7 @@ security:
         api:
             pattern: ^/api
             stateless: true
+            user_checker: App\Security\UserChecker
             jwt: ~
             entry_point: jwt
 
@@ -39,10 +45,33 @@ security:
     access_control:
         - { path: ^/api/auth/login, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/logout, roles: IS_AUTHENTICATED_FULLY }
-        - { path: ^/api/contact, roles: PUBLIC_ACCESS, methods: [POST, OPTIONS] }
+        # Soumission publique du formulaire — ancré ($) pour ne PAS couvrir les
+        # sous-routes admin comme /api/contact/{id}/reply.
+        - { path: ^/api/contact$, roles: PUBLIC_ACCESS, methods: [POST, OPTIONS] }
+        # Gestion des demandes de devis (liste, statut, réponse) : admin.
+        - { path: ^/api/contact, roles: ROLE_ADMIN }
+        # Overrides de contenu du site : lecture publique, écriture éditoriale.
+        - { path: ^/api/content, roles: PUBLIC_ACCESS, methods: [GET, OPTIONS] }
+        - { path: ^/api/content, roles: ROLE_EDITOR }
+        # Administration des comptes internes : admin administratif uniquement.
+        - { path: ^/api/users, roles: ROLE_ADMIN }
         - { path: ^/api/realizations, roles: PUBLIC_ACCESS, methods: [GET, OPTIONS] }
+        # Écriture des réalisations (POST/PUT/PATCH/DELETE) : super-admin éditorial.
+        - { path: ^/api/realizations, roles: ROLE_EDITOR }
+        # Upload de médias éditoriaux : super-admin éditorial.
+        - { path: ^/api/media, roles: ROLE_EDITOR }
         - { path: ^/api/auth/me, roles: IS_AUTHENTICATED_FULLY }
-        - { path: ^/api/documents, roles: IS_AUTHENTICATED_FULLY }
+        # Upload de documents : employés et admin uniquement (les clients ne font que consulter).
+        - { path: ^/api/documents, roles: [ROLE_EMPLOYEE, ROLE_ADMIN], methods: [POST] }
+        # Dispatch (affectation d'un doc à des clients) : admin administratif uniquement.
+        - { path: ^/api/documents, roles: ROLE_ADMIN, methods: [PUT, PATCH] }
+        # Consultation : tous les rôles SAUF l'éditeur (profil purement éditorial,
+        # aucun accès aux documents clients/internes).
+        - { path: ^/api/documents, roles: [ROLE_ADMIN, ROLE_EMPLOYEE, ROLE_PARTNER, ROLE_CLIENT] }
+        # Sélecteur léger des clients (pré-affectation) : employés + admin.
+        - { path: ^/api/clients/options, roles: [ROLE_EMPLOYEE, ROLE_ADMIN], methods: [GET] }
+        # Gestion des comptes clients : admin administratif uniquement.
+        - { path: ^/api/clients, roles: ROLE_ADMIN }
 
 when@test:
     security:

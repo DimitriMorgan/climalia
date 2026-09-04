@@ -4,20 +4,28 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Dto\RealizationInput;
 use App\Entity\Realization;
 use App\Enum\EquipmentType;
 use App\Enum\RealizationType;
 use App\Repository\RealizationRepository;
+use DateTimeImmutable;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Uid\Uuid;
 
 #[Route('/api/realizations', name: 'api_realizations_')]
 final class RealizationController extends AbstractController
 {
     public function __construct(
         private readonly RealizationRepository $realizations,
+        private readonly EntityManagerInterface $em,
     ) {
     }
 
@@ -30,7 +38,69 @@ final class RealizationController extends AbstractController
 
         $realizations = $this->realizations->findFiltered($type, $equipmentType, $region);
 
-        $payload = array_map(static fn (Realization $r): array => [
+        return new JsonResponse(array_map($this->serialize(...), $realizations));
+    }
+
+    #[Route('', name: 'create', methods: ['POST'])]
+    public function create(#[MapRequestPayload] RealizationInput $input): JsonResponse
+    {
+        $realization = new Realization(
+            title: $input->title,
+            description: $input->description,
+            type: $input->type,
+            equipmentType: $input->equipmentType,
+            region: $input->region,
+            beforeImageUrl: $input->beforeImageUrl,
+            afterImageUrl: $input->afterImageUrl,
+            publishedAt: $this->parsePublishedAt($input->publishedAt),
+        );
+
+        $this->em->persist($realization);
+        $this->em->flush();
+
+        return new JsonResponse($this->serialize($realization), Response::HTTP_CREATED);
+    }
+
+    #[Route('/{id}', name: 'update', methods: ['PUT'])]
+    public function update(string $id, #[MapRequestPayload] RealizationInput $input): JsonResponse
+    {
+        $realization = $this->findOr404($id);
+
+        $realization->setTitle($input->title);
+        $realization->setDescription($input->description);
+        $realization->setType($input->type);
+        $realization->setEquipmentType($input->equipmentType);
+        $realization->setRegion($input->region);
+        $realization->setBeforeImageUrl($input->beforeImageUrl);
+        $realization->setAfterImageUrl($input->afterImageUrl);
+
+        $publishedAt = $this->parsePublishedAt($input->publishedAt);
+        if ($publishedAt !== null) {
+            $realization->setPublishedAt($publishedAt);
+        }
+
+        $this->em->flush();
+
+        return new JsonResponse($this->serialize($realization));
+    }
+
+    #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    public function delete(string $id): JsonResponse
+    {
+        $realization = $this->findOr404($id);
+
+        $this->em->remove($realization);
+        $this->em->flush();
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serialize(Realization $r): array
+    {
+        return [
             'id' => $r->getId()->toRfc4122(),
             'title' => $r->getTitle(),
             'description' => $r->getDescription(),
@@ -40,9 +110,34 @@ final class RealizationController extends AbstractController
             'beforeImageUrl' => $r->getBeforeImageUrl(),
             'afterImageUrl' => $r->getAfterImageUrl(),
             'publishedAt' => $r->getPublishedAt()->format(DATE_ATOM),
-        ], $realizations);
+        ];
+    }
 
-        return new JsonResponse($payload);
+    private function findOr404(string $id): Realization
+    {
+        if (!Uuid::isValid($id)) {
+            throw new NotFoundHttpException('Invalid realization id.');
+        }
+
+        $realization = $this->realizations->find(Uuid::fromString($id));
+        if (!$realization instanceof Realization) {
+            throw new NotFoundHttpException('Realization not found.');
+        }
+
+        return $realization;
+    }
+
+    private function parsePublishedAt(?string $value): ?DateTimeImmutable
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        try {
+            return new DateTimeImmutable($value);
+        } catch (\Exception) {
+            return null;
+        }
     }
 
     /**

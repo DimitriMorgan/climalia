@@ -40,6 +40,8 @@ final class AuthController extends AbstractController
             return new JsonResponse(['error' => 'Unauthenticated'], Response::HTTP_UNAUTHORIZED);
         }
 
+        $client = $user->getClient();
+
         return new JsonResponse([
             'id' => $user->getId()->toRfc4122(),
             'email' => $user->getEmail(),
@@ -47,6 +49,8 @@ final class AuthController extends AbstractController
             'lastName' => $user->getLastName(),
             'role' => $user->getRoleEnum()->value,
             'region' => $user->getRegion(),
+            'company' => $client?->getName(),
+            'segment' => $client?->getSegment()->value,
         ]);
     }
 }
