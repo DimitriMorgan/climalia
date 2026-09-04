@@ -1,38 +1,33 @@
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { logout as apiLogout } from '@/api/auth';
 import { ApiError } from '@/api/client';
-import { getDocumentDownload, listDocuments } from '@/api/documents';
+import { downloadDocument, listDocuments } from '@/api/documents';
 import type { DocumentFilters as DocumentFiltersInput } from '@/api/documents';
-import { DocumentFilters, EMPTY_DOCUMENT_FILTERS } from '@/features/documents/DocumentFilters';
+import { Counter } from '@/components/Counter';
+import { ProShell, ROLE_BADGE_LABEL } from '@/components/ProShell';
+import {
+  DocumentFilters,
+  EMPTY_DOCUMENT_FILTERS,
+} from '@/features/documents/DocumentFilters';
 import type { DocumentFiltersState } from '@/features/documents/DocumentFilters';
 import { DocumentList } from '@/features/documents/DocumentList';
+import { DocumentPreviewModal } from '@/features/documents/DocumentPreviewModal';
+import { CATEGORY_LABELS } from '@/features/documents/labels';
 import { useAuthStore } from '@/stores/authStore';
 import type { ApiDocument } from '@/types/api';
-import type { UserRole } from '@/types/enums';
-
-const ROLE_BADGE_COLOR: Record<UserRole, string> = {
-  ADMIN: '#dc2626',
-  EMPLOYEE: '#16a34a',
-  PARTNER: '#2563eb',
-};
-
-const ROLE_BADGE_LABEL: Record<UserRole, string> = {
-  ADMIN: 'Administrateur',
-  EMPLOYEE: 'Salarié',
-  PARTNER: 'Partenaire',
-};
+import type { DocumentCategory } from '@/types/enums';
 
 export function DashboardPage(): React.ReactElement {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
-  const storeLogout = useAuthStore((s) => s.logout);
 
   const [filters, setFilters] = useState<DocumentFiltersState>(EMPTY_DOCUMENT_FILTERS);
   const [docs, setDocs] = useState<ReadonlyArray<ApiDocument>>([]);
+  const [newCount, setNewCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<ApiDocument | null>(null);
 
   useEffect((): void => {
     if (token === null) {
@@ -52,7 +47,13 @@ export function DashboardPage(): React.ReactElement {
         };
         const result = await listDocuments(apiFilters);
         if (!state.cancelled) {
+          const now = Date.now();
+          const recent = result.filter((d) => {
+            const ms = Date.parse(d.uploadedAt);
+            return !Number.isNaN(ms) && now - ms < 7 * 24 * 60 * 60 * 1000;
+          }).length;
           setDocs(result);
+          setNewCount(recent);
           setError(null);
         }
       } catch (err: unknown) {
@@ -63,88 +64,181 @@ export function DashboardPage(): React.ReactElement {
       }
     }
     void load();
-    return (): void => { state.cancelled = true; };
+    return (): void => {
+      state.cancelled = true;
+    };
   }, [filters.category, filters.dateFrom, filters.dateTo, filters.region]);
 
-  const visibleDocs = filters.search.trim() === ''
-    ? docs
-    : docs.filter((d): boolean => d.title.toLowerCase().includes(filters.search.trim().toLowerCase()));
+  const visibleDocs = useMemo(
+    () =>
+      filters.search.trim() === ''
+        ? docs
+        : docs.filter((d) =>
+          d.title.toLowerCase().includes(filters.search.trim().toLowerCase()),
+        ),
+    [docs, filters.search],
+  );
 
   async function handleDownload(id: string): Promise<void> {
-    try {
-      const meta = await getDocumentDownload(id);
-      let url: URL;
-      try {
-        url = new URL(meta.fileUrl);
-      } catch {
-        setError('URL de téléchargement invalide.');
-        return;
-      }
-      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-        setError('URL de téléchargement invalide.');
-        return;
-      }
-      const opened = window.open(url.toString(), '_blank', 'noopener,noreferrer');
-      if (opened === null) {
-        setError('Le téléchargement a été bloqué. Autorisez les pop-ups pour ce site.');
-      }
-    } catch (err: unknown) {
-      const message = err instanceof ApiError ? err.message : 'Erreur de téléchargement.';
-      setError(message);
-    }
+    setError(await downloadDocument(id));
   }
 
-  async function handleLogout(): Promise<void> {
-    try {
-      await apiLogout();
-    } catch {
-      // JWT logout is stateless — ignore errors.
-    }
-    storeLogout();
-    // token-watcher effect handles the redirect
-  }
+  const cats = useMemo(() => {
+    const m = new Map<DocumentCategory, number>();
+    for (const d of docs) m.set(d.category, (m.get(d.category) ?? 0) + 1);
+    return [...m.entries()];
+  }, [docs]);
 
   if (user === null) {
-    return <p>Chargement…</p>;
+    return (
+      <section className="container section-pad">
+        <p className="empty-state">Chargement…</p>
+      </section>
+    );
   }
 
-  const badgeColor = ROLE_BADGE_COLOR[user.role];
-  const badgeLabel = ROLE_BADGE_LABEL[user.role];
+  const isPartner = user.role === 'PARTNER';
+  const isEmployee = user.role === 'EMPLOYEE';
 
   return (
-    <section>
-      <header style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-        <h1 style={{ margin: 0 }}>Bonjour, {user.firstName} {user.lastName}</h1>
-        <span
-          aria-label={`Rôle: ${badgeLabel}`}
-          style={{
-            backgroundColor: badgeColor,
-            color: '#fff',
-            padding: '0.25rem 0.6rem',
-            borderRadius: '0.375rem',
-            fontSize: '0.85rem',
-            fontWeight: 600,
+    <ProShell>
+      {/* Banner */}
+      <div className={`dash__banner ${isPartner ? 'dash__banner--partner' : ''}`}>
+        <div className="dash__banner-pattern" aria-hidden />
+        <div className="dash__banner-inner">
+          <div>
+            <div className="dash__banner-eyebrow">
+              {ROLE_BADGE_LABEL[user.role]} {user.region !== null ? `· ${user.region}` : ''}
+            </div>
+            <h1 className="dash__banner-title">
+              Bonjour, {user.firstName}.
+            </h1>
+            <p className="dash__banner-desc">
+              {isEmployee
+                ? "Vos plannings, fiches techniques équipement, contrats des clients qui vous sont assignés et ressources internes."
+                : isPartner
+                  ? "Vos rapports d'intervention, certificats d'entretien, factures et contrats de maintenance pour les sites que vous gérez."
+                  : "Vue d'ensemble : utilisateurs, documents, contrats et activité de l'organisation."}
+            </p>
+          </div>
+          <div className="dash__banner-stats">
+            <DashStat
+              label={isEmployee ? 'Interventions' : isPartner ? 'Sites gérés' : 'Utilisateurs'}
+              value={isEmployee ? 12 : isPartner ? 14 : 240}
+            />
+            <DashStat label="Documents" value={docs.length} />
+            <DashStat label="Nouveaux" value={newCount} accent />
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="dash__body">
+        <aside>
+          <div className="dash__rail-label">Catégories</div>
+          <div className="dash__rail-list">
+            <CatBtn
+              label="Tous les documents"
+              count={docs.length}
+              active={filters.category === ''}
+              onClick={(): void => {
+                setFilters({ ...filters, category: '' });
+              }}
+            />
+            {cats.map(([cat, count]) => (
+              <CatBtn
+                key={cat}
+                label={CATEGORY_LABELS[cat]}
+                count={count}
+                active={filters.category === cat}
+                onClick={(): void => {
+                  setFilters({ ...filters, category: cat as DocumentFiltersState['category'] });
+                }}
+              />
+            ))}
+          </div>
+
+          <div className="card card--ink" style={{ marginTop: '2rem', padding: '1.25rem' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--accent)' }}>
+              {isPartner ? 'Vue partenaire' : isEmployee ? 'Vue employé' : 'Vue admin'}
+            </div>
+            <p style={{ marginTop: '0.5rem', fontSize: 14 }}>
+              {isPartner
+                ? "Vous ne voyez que les documents des sites que vous gérez."
+                : isEmployee
+                  ? "Accès aux ressources internes, fiches techniques équipement et contrats clients qui vous sont assignés."
+                  : "Vue complète sur tous les documents de l'organisation."}
+            </p>
+          </div>
+        </aside>
+
+        <main className="dash__main">
+          <DocumentFilters
+            value={filters}
+            onChange={setFilters}
+            resultCount={visibleDocs.length}
+          />
+
+          {error !== null ? (
+            <p role="alert" className="alert alert--bad">{error}</p>
+          ) : null}
+
+          <DocumentList
+            items={visibleDocs}
+            onDownload={(id): void => {
+              void handleDownload(id);
+            }}
+            onPreview={setPreviewDoc}
+          />
+        </main>
+      </div>
+
+      {previewDoc !== null ? (
+        <DocumentPreviewModal
+          doc={previewDoc}
+          onClose={(): void => { setPreviewDoc(null); }}
+          onDocUpdated={(updated): void => {
+            setDocs((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+            setPreviewDoc(updated);
           }}
-        >
-          {badgeLabel}
-        </span>
-        <button
-          type="button"
-          onClick={(): void => { void handleLogout(); }}
-          style={{ marginLeft: 'auto' }}
-        >
-          Se déconnecter
-        </button>
-      </header>
-
-      <DocumentFilters value={filters} onChange={setFilters} />
-
-      {error !== null ? <p role="alert">{error}</p> : null}
-
-      <DocumentList
-        items={visibleDocs}
-        onDownload={(id): void => { void handleDownload(id); }}
-      />
-    </section>
+        />
+      ) : null}
+    </ProShell>
   );
 }
+
+interface DashStatProps {
+  label: string;
+  value: number;
+  accent?: boolean;
+}
+
+function DashStat({ label, value, accent }: DashStatProps): React.ReactElement {
+  return (
+    <div className="dash-stat">
+      <div className="dash-stat__label">{label}</div>
+      <div className={`dash-stat__value ${accent === true ? 'dash-stat__value--accent' : ''}`}>
+        <Counter to={value} />
+      </div>
+    </div>
+  );
+}
+
+interface CatBtnProps {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}
+
+function CatBtn({ label, count, active, onClick }: CatBtnProps): React.ReactElement {
+  return (
+    <button type="button" onClick={onClick} className={`cat-btn ${active ? 'is-active' : ''}`}>
+      <span className="cat-btn__name">
+        <span>{label}</span>
+      </span>
+      <span className="cat-btn__count num">{count}</span>
+    </button>
+  );
+}
+
