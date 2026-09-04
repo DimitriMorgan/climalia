@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { ApiError } from '@/api/client';
-import { downloadDocument, fetchDocumentFile } from '@/api/documents';
+import { downloadDocument, fetchDocumentFile, isSafeHttpUrl } from '@/api/documents';
 import { Icon } from '@/components/Icon';
 import type { ApiDocument } from '@/types/api';
 
@@ -41,6 +41,13 @@ export function DocumentViewer({ doc }: DocumentViewerProps): React.ReactElement
         const file = await fetchDocumentFile(doc.id);
         if (state.cancelled) return;
         if (file.kind === 'external') {
+          // Meme garde que le telechargement : une URL non http(s) placee dans
+          // le href de l'ancre serait un vecteur XSS.
+          if (!isSafeHttpUrl(file.url)) {
+            setError('URL de document invalide.');
+            setPreview({ status: 'unavailable' });
+            return;
+          }
           setPreview({ status: 'external', url: file.url });
           return;
         }

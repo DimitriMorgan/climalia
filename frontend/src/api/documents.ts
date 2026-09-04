@@ -140,7 +140,11 @@ export function saveBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-function isSafeHttpUrl(raw: string): boolean {
+/**
+ * N'autorise que http(s) : bloque javascript:, data: et autres schemas
+ * executables avant toute insertion dans un href ou un window.open.
+ */
+export function isSafeHttpUrl(raw: string): boolean {
   try {
     const url = new URL(raw);
     return url.protocol === 'http:' || url.protocol === 'https:';
