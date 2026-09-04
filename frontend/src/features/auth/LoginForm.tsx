@@ -3,15 +3,25 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { fetchMe, login } from '@/api/auth';
 import { ApiError } from '@/api/client';
+import { Icon } from '@/components/Icon';
 import { useAuthStore } from '@/stores/authStore';
 import type { ApiUser } from '@/types/api';
 
-export function LoginForm(): React.ReactElement {
+interface LoginFormProps {
+  initialEmail?: string;
+  initialPassword?: string;
+  onPrefill?: (email: string) => void;
+}
+
+export function LoginForm({
+  initialEmail = '',
+  initialPassword = '',
+}: LoginFormProps): React.ReactElement {
   const navigate = useNavigate();
   const setToken = useAuthStore((s) => s.setToken);
   const setSession = useAuthStore((s) => s.login);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(initialEmail);
+  const [password, setPassword] = useState(initialPassword);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,7 +39,9 @@ export function LoginForm(): React.ReactElement {
         throw innerErr;
       }
       setSession(token, me);
-      void navigate('/espace-pro/dashboard', { replace: true });
+      const destination =
+        me.role === 'EDITOR' ? '/espace-pro/realisations' : '/espace-pro/dashboard';
+      void navigate(destination, { replace: true });
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         setError(err.status === 401 ? 'Identifiants invalides.' : err.message);
@@ -47,35 +59,60 @@ export function LoginForm(): React.ReactElement {
   };
 
   return (
-    <form onSubmit={handleSubmit} aria-describedby="login-help" noValidate>
-      <p id="login-help">
-        Démo : employe.idf@climalia.fr / syndic@partner.fr / admin@climalia.fr — mot de passe demo
-      </p>
-      {error !== null ? <p role="alert">{error}</p> : null}
-      <p>
-        <label htmlFor="email">Email</label><br />
+    <form className="login__form" onSubmit={handleSubmit} noValidate>
+      <div className="field-group">
+        <label htmlFor="email" className="field-group__label">Email professionnel</label>
         <input
           id="email"
           type="email"
+          className="field field--lg"
           autoComplete="email"
-          value={email}
-          onChange={(e): void => { setEmail(e.target.value); }}
           required
+          value={email}
+          placeholder="vous@climalia.fr"
+          onChange={(e): void => {
+            setEmail(e.target.value);
+          }}
         />
-      </p>
-      <p>
-        <label htmlFor="password">Mot de passe</label><br />
+      </div>
+      <div className="field-group">
+        <label htmlFor="password" className="field-group__label">Mot de passe</label>
         <input
           id="password"
           type="password"
+          className="field field--lg"
           autoComplete="current-password"
-          value={password}
-          onChange={(e): void => { setPassword(e.target.value); }}
           required
+          value={password}
+          placeholder="••••••"
+          onChange={(e): void => {
+            setPassword(e.target.value);
+          }}
         />
-      </p>
-      <button type="submit" disabled={submitting}>
-        {submitting ? 'Connexion…' : 'Se connecter'}
+      </div>
+
+      {error !== null ? (
+        <p role="alert" className="alert alert--bad">{error}</p>
+      ) : null}
+
+      <div className="login__row">
+        <label>
+          <input type="checkbox" /> Se souvenir de moi
+        </label>
+        <a href="#">Mot de passe oublié ?</a>
+      </div>
+
+      <button
+        type="submit"
+        className="btn btn--primary btn--lg"
+        disabled={submitting}
+        style={{ marginTop: '0.5rem', justifyContent: 'center' }}
+      >
+        {submitting ? 'Connexion…' : (
+          <>
+            Se connecter <Icon name="arrow-right" size={14} />
+          </>
+        )}
       </button>
     </form>
   );
