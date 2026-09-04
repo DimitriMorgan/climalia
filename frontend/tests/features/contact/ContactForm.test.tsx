@@ -28,7 +28,7 @@ describe('ContactForm', (): void => {
     await user.type(screen.getByLabelText(/email/i), 'jean@example.com');
     await user.type(screen.getByLabelText(/téléphone/i), '0612345678');
     await user.type(screen.getByLabelText(/code postal/i), '75011');
-    await user.selectOptions(screen.getByLabelText(/type de projet/i), 'INSTALLATION_AC');
+    await user.click(screen.getByRole('button', { name: /^climatisation$/i }));
     await user.type(screen.getByLabelText(/message/i), 'Bonjour, je souhaite un devis.');
     await user.click(screen.getByRole('button', { name: /envoyer/i }));
     await waitFor((): void => { expect(screen.getByRole('status')).toHaveTextContent(/merci|envoyée/i); });
@@ -47,7 +47,7 @@ describe('ContactForm', (): void => {
     await user.type(screen.getByLabelText(/email/i), 'jean@example.com');
     await user.type(screen.getByLabelText(/téléphone/i), '0612345678');
     await user.type(screen.getByLabelText(/code postal/i), '75011');
-    await user.selectOptions(screen.getByLabelText(/type de projet/i), 'INSTALLATION_AC');
+    await user.click(screen.getByRole('button', { name: /^climatisation$/i }));
     await user.type(screen.getByLabelText(/message/i), 'Bonjour.');
     await user.click(screen.getByRole('button', { name: /envoyer/i }));
     expect(await screen.findByText(/email déjà enregistré/i)).toBeInTheDocument();
