@@ -37,6 +37,31 @@ Contrôle demandé par Dimitri (« vérifie que tout est push »). Résultat : *
   connu. Corrigé par `docker compose up -d --force-recreate frankenphp`. `postgres` était
   aussi arrêté, d'où le conteneur `unhealthy`.
 
+Suite, même jour — mise en ligne effectuée :
+
+- Dépôt distant `git@github.com:DimitriMorgan/climalia.git` fourni par Dimitri. Il ne
+  contenait qu'un commit `Initial commit` avec un README placeholder de 2 lignes, vérifié
+  avant écrasement. Décision assumée : garder `JWT_PASSPHRASE` dans `backend/.env`, le
+  dépôt est privé.
+- Les 115 changements découpés en **10 commits thématiques** (deps backend, modèle de
+  données, API, tests backend, couche API front, site public, espace pro, tests front,
+  infra, journal) puis poussés avec `--force-with-lease`. Local et distant sur `f23a904`,
+  207 fichiers versionnés, arbre propre, `master` suit `origin/master`.
+- Vérifié après push : aucun `vendor/`, `node_modules/`, `.env.local`, `.pem` ni image
+  d'upload dans l'arbre versionné.
+- **Correctif ESLint** : `pushPreview` de `ContentAdminPage` construit désormais `merged`
+  par `Object.fromEntries` + filtrage au lieu d'un `delete` dynamique. Sémantique
+  identique : un brouillon vide ou revenu au défaut retire la clé, override compris.
+- **Correctif sécurité** : une revue automatique a relevé que `DocumentViewer` plaçait
+  l'URL d'un document externe dans un `href` sans la garde `isSafeHttpUrl` qu'utilise le
+  chemin de téléchargement. Non exploitable en l'état — `fileUrl` n'est écrit par aucun
+  endpoint, les deux chemins de création le mettent à `null` et le `DemoSeeder` efface
+  toute valeur hors `https://files.climalia.test/`. Asymétrie fermée quand même :
+  `isSafeHttpUrl` est exporté depuis `api/documents` et appliqué à la source, une URL non
+  http(s) bascule la vue en `unavailable`.
+- Contrôles après correctifs : `make lint-front` **0 erreur** (4 warnings `react-refresh`
+  préexistants), `tsc -b` **OK**, Jest **24/24**, PHPStan niveau 8 **OK**.
+
 ### 2026-07-07 — Tour du projet + lot de features admin
 
 État des lieux fait par rapport à la liste de Dimitri :
@@ -132,14 +157,15 @@ en prod — les poser à la main via la modale d'aperçu ou la page Calendrier.
 
 ## Pistes d'amélioration — techniques
 
-- **`make lint-front` rouge** — `no-dynamic-delete` sur `ContentAdminPage.tsx:75`. À corriger
-  en construisant l'objet `merged` par filtrage plutôt qu'avec `delete`.
 - **Tests fonctionnels sans base isolée** — ni `DATABASE_URL` dans `.env.test`, ni
   `dama/doctrine-test-bundle`, ni reset de schéma : PHPUnit tape dans la base de dev.
   À isoler avant de brancher une CI.
-- **Aucune sauvegarde hors machine** — le projet n'existe qu'en local, sans remote. Une perte
-  du poste = perte totale (code + historique). Créer un dépôt privé et pousser est la
-  première chose à faire, avant toute autre évolution.
+- **Pousser au fil de l'eau** — résolu le 2026-09-04 par la création du remote, mais le
+  backlog avait atteint 115 fichiers non commités avant d'être sauvegardé. Committer par
+  lots courts évite de reconstituer un découpage thématique après coup.
+- **Garde d'URL à un seul endroit** — `isSafeHttpUrl` protège maintenant le téléchargement
+  et la visionneuse. Toute nouvelle insertion d'une URL venant de la base dans un `href`,
+  un `src` ou un `window.open` doit passer par cette fonction.
 - **Déploiement : pas de versionning des releases** — deploy.sh rsync le working tree
   (y compris non commité). Risque d'écart entre git et prod ; brancher le deploy sur un
   commit/tag serait plus sûr.
