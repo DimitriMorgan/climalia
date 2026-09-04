@@ -2,8 +2,16 @@ export const UserRole = {
   EMPLOYEE: 'EMPLOYEE',
   PARTNER: 'PARTNER',
   ADMIN: 'ADMIN',
+  EDITOR: 'EDITOR',
+  CLIENT: 'CLIENT',
 } as const;
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+
+export const DocumentAudience = {
+  INTERNAL: 'INTERNAL',
+  CLIENT: 'CLIENT',
+} as const;
+export type DocumentAudience = (typeof DocumentAudience)[keyof typeof DocumentAudience];
 
 export const DocumentCategory = {
   PLANNING: 'PLANNING',
@@ -44,3 +52,12 @@ export const ContactStatus = {
   CLOSED: 'CLOSED',
 } as const;
 export type ContactStatus = (typeof ContactStatus)[keyof typeof ContactStatus];
+
+export const ClientSegment = {
+  PARTICULIER: 'PARTICULIER',
+  RESIDENTIEL: 'RESIDENTIEL',
+  TERTIAIRE: 'TERTIAIRE',
+  INDUSTRIEL: 'INDUSTRIEL',
+  SYNDIC: 'SYNDIC',
+} as const;
+export type ClientSegment = (typeof ClientSegment)[keyof typeof ClientSegment];
