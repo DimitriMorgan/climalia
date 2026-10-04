@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Observability\AuditLogger;
 use App\Dto\ClientInput;
 use App\Dto\ContactInput;
 use App\Entity\Client;
@@ -34,6 +35,7 @@ final class ClientController extends AbstractController
         private readonly UserRepository $users,
         private readonly EntityManagerInterface $em,
         private readonly UserPasswordHasherInterface $hasher,
+        private readonly AuditLogger $audit,
     ) {
     }
 
@@ -84,6 +86,8 @@ final class ClientController extends AbstractController
         ));
         $this->em->flush();
 
+        $this->audit->record('client.created', ['client_id' => $company->getId()->toRfc4122()]);
+
         return new JsonResponse($this->serialize($company), Response::HTTP_CREATED);
     }
 
@@ -95,6 +99,8 @@ final class ClientController extends AbstractController
         $company->setSegment($input->segment);
         $company->setRegion($input->region);
         $this->em->flush();
+
+        $this->audit->record('client.updated', ['client_id' => $company->getId()->toRfc4122()]);
 
         return new JsonResponse($this->serialize($company));
     }
@@ -112,6 +118,8 @@ final class ClientController extends AbstractController
 
         $this->em->persist($this->makeContact($company, $input->email, $input->firstName, $input->lastName, $input->password));
         $this->em->flush();
+
+        $this->audit->record('client.updated', ['client_id' => $company->getId()->toRfc4122(), 'contact_added' => true]);
 
         return new JsonResponse($this->serialize($company), Response::HTTP_CREATED);
     }

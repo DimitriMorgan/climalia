@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Observability\AuditLogger;
 use App\Dto\UserInput;
 use App\Entity\User;
 use App\Enum\UserRole;
@@ -32,6 +33,7 @@ final class UserController extends AbstractController
         private readonly UserRepository $users,
         private readonly EntityManagerInterface $em,
         private readonly UserPasswordHasherInterface $hasher,
+        private readonly AuditLogger $audit,
     ) {
     }
 
@@ -68,6 +70,8 @@ final class UserController extends AbstractController
         $this->em->persist($user);
         $this->em->flush();
 
+        $this->audit->record('user.created', ['target_user_id' => $user->getId()->toRfc4122()]);
+
         return new JsonResponse($this->serialize($user), Response::HTTP_CREATED);
     }
 
@@ -98,6 +102,8 @@ final class UserController extends AbstractController
             $user->setPasswordHash($this->hasher->hashPassword($user, $input->password));
         }
         $this->em->flush();
+
+        $this->audit->record('user.updated', ['target_user_id' => $user->getId()->toRfc4122()]);
 
         return new JsonResponse($this->serialize($user));
     }
@@ -135,6 +141,8 @@ final class UserController extends AbstractController
 
         $this->em->flush();
 
+        $this->audit->record('user.updated', ['target_user_id' => $user->getId()->toRfc4122(), 'flags' => true]);
+
         return new JsonResponse($this->serialize($user));
     }
 
@@ -147,8 +155,11 @@ final class UserController extends AbstractController
             return $this->violation('id', 'Vous ne pouvez pas supprimer votre propre compte.');
         }
 
+        $deletedId = $user->getId()->toRfc4122();
         $this->em->remove($user);
         $this->em->flush();
+
+        $this->audit->record('user.deleted', ['target_user_id' => $deletedId]);
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }

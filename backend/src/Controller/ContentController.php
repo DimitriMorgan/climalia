@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Observability\AuditLogger;
 use App\Entity\SiteContent;
 use App\Repository\SiteContentRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -26,6 +27,7 @@ final class ContentController extends AbstractController
     public function __construct(
         private readonly SiteContentRepository $contents,
         private readonly EntityManagerInterface $em,
+        private readonly AuditLogger $audit,
     ) {
     }
 
@@ -76,6 +78,8 @@ final class ContentController extends AbstractController
             }
         }
         $this->em->flush();
+
+        $this->audit->record('content.updated');
 
         return new JsonResponse($this->overridesMap());
     }

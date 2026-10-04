@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Observability\AuditLogger;
 use App\Dto\ContactRequestInput;
 use App\Entity\ContactRequest;
 use App\Entity\User;
@@ -32,6 +33,7 @@ final class ContactController extends AbstractController
         private readonly RateLimiterFactoryInterface $contactLimiter,
         private readonly ContactRequestRepository $requests,
         private readonly ContactReplyMailer $replyMailer,
+        private readonly AuditLogger $audit,
     ) {
     }
 
@@ -71,6 +73,9 @@ final class ContactController extends AbstractController
 
         $this->em->persist($contact);
         $this->em->flush();
+
+        // Formulaire public : ni nom, ni e-mail, ni message dans les logs.
+        $this->audit->record('contact.submitted', ['contact_id' => $contact->getId()->toRfc4122()]);
 
         return new JsonResponse(
             ['id' => $contact->getId()->toRfc4122(), 'status' => $contact->getStatus()->value],
@@ -113,6 +118,8 @@ final class ContactController extends AbstractController
         $contact->setStatus($status);
         $this->em->flush();
 
+        $this->audit->record('contact.status_updated', ['contact_id' => $contact->getId()->toRfc4122(), 'status' => $contact->getStatus()->value]);
+
         return new JsonResponse($this->serialize($contact));
     }
 
@@ -150,6 +157,8 @@ final class ContactController extends AbstractController
         $this->replyMailer->sendReply($contact, $subject, $message, $admin);
         $contact->markReplied();
         $this->em->flush();
+
+        $this->audit->record('contact.replied', ['contact_id' => $contact->getId()->toRfc4122()]);
 
         return new JsonResponse($this->serialize($contact));
     }

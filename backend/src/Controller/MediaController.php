@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Observability\AuditLogger;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -26,6 +27,7 @@ final class MediaController extends AbstractController
     public function __construct(
         #[Autowire('%kernel.project_dir%')]
         private readonly string $projectDir,
+        private readonly AuditLogger $audit,
     ) {
     }
 
@@ -46,6 +48,8 @@ final class MediaController extends AbstractController
         $file->move($uploadDir, $name);
 
         $url = '/uploads/' . $name;
+
+        $this->audit->record('media.uploaded', ['file' => $name]);
 
         return new JsonResponse([
             'url' => $url,

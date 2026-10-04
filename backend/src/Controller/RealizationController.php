@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Observability\AuditLogger;
 use App\Dto\RealizationInput;
 use App\Entity\Realization;
 use App\Enum\EquipmentType;
@@ -26,6 +27,7 @@ final class RealizationController extends AbstractController
     public function __construct(
         private readonly RealizationRepository $realizations,
         private readonly EntityManagerInterface $em,
+        private readonly AuditLogger $audit,
     ) {
     }
 
@@ -58,6 +60,8 @@ final class RealizationController extends AbstractController
         $this->em->persist($realization);
         $this->em->flush();
 
+        $this->audit->record('realization.created', ['realization_id' => $realization->getId()->toRfc4122()]);
+
         return new JsonResponse($this->serialize($realization), Response::HTTP_CREATED);
     }
 
@@ -81,6 +85,8 @@ final class RealizationController extends AbstractController
 
         $this->em->flush();
 
+        $this->audit->record('realization.updated', ['realization_id' => $realization->getId()->toRfc4122()]);
+
         return new JsonResponse($this->serialize($realization));
     }
 
@@ -89,8 +95,11 @@ final class RealizationController extends AbstractController
     {
         $realization = $this->findOr404($id);
 
+        $deletedId = $realization->getId()->toRfc4122();
         $this->em->remove($realization);
         $this->em->flush();
+
+        $this->audit->record('realization.deleted', ['realization_id' => $deletedId]);
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Observability\AuditLogger;
 use App\Entity\Client;
 use App\Entity\Document;
 use App\Entity\User;
@@ -43,6 +44,7 @@ final class DocumentController extends AbstractController
         private readonly DocumentNotificationMailer $notifier,
         #[Autowire('%kernel.project_dir%')]
         private readonly string $projectDir,
+        private readonly AuditLogger $audit,
     ) {
     }
 
@@ -151,6 +153,8 @@ final class DocumentController extends AbstractController
             $this->notifier->notifyNewDocument($document, $assignedCompanies);
         }
 
+        $this->audit->record('document.uploaded', ['document_id' => $document->getId()->toRfc4122()]);
+
         return new JsonResponse($this->serialize($document, $user), Response::HTTP_CREATED);
     }
 
@@ -189,6 +193,8 @@ final class DocumentController extends AbstractController
                 ResponseHeaderBag::DISPOSITION_ATTACHMENT,
                 $this->downloadFilename($document, $storagePath),
             );
+
+            $this->audit->record('document.downloaded', ['document_id' => $document->getId()->toRfc4122()]);
 
             return $response;
         }
@@ -237,6 +243,8 @@ final class DocumentController extends AbstractController
 
         $this->em->flush();
 
+        $this->audit->record('document.updated', ['document_id' => $document->getId()->toRfc4122()]);
+
         return new JsonResponse($this->serialize($document, $user));
     }
 
@@ -276,6 +284,8 @@ final class DocumentController extends AbstractController
                 $this->notifier->notifyNewDocument($document, $newlyAssigned);
             }
         }
+
+        $this->audit->record('document.clients_assigned', ['document_id' => $document->getId()->toRfc4122()]);
 
         return new JsonResponse($this->serialize($document, $user));
     }
