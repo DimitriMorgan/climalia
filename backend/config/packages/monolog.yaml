@@ -1,0 +1,61 @@
+monolog:
+    channels: # To see all channels, run bin/console debug:autowiring logger
+        - deprecation # Deprecations are logged in the dedicated "deprecation" channel when it exists
+        # Observabilité du VPS (contrat de logs, src/Observability/) :
+        - http   # une ligne par requête (HttpLogSubscriber)
+        - audit  # actions des utilisateurs (AuditLogger)
+
+when@dev:
+    monolog:
+        handlers:
+            main:
+                type: stream
+                path: "%kernel.logs_dir%/%kernel.environment%.log"
+                level: debug
+                channels: ["!event"]
+            console:
+                type: console
+                process_psr_3_messages: false
+                channels: ["!event", "!doctrine", "!console"]
+
+when@test:
+    monolog:
+        handlers:
+            main:
+                type: fingers_crossed
+                action_level: error
+                handler: nested
+                excluded_http_codes: [404, 405]
+                channels: ["!event"]
+            nested:
+                type: stream
+                path: "%kernel.logs_dir%/%kernel.environment%.log"
+                level: debug
+
+when@prod:
+    monolog:
+        handlers:
+            # http / audit : toujours écrits, une ligne JSON au contrat (Alloy → Loki).
+            contract:
+                type: stream
+                path: php://stderr
+                level: info
+                channels: [http, audit]
+                formatter: App\Observability\ContractJsonFormatter
+            # Le reste : rien tant que tout va bien ; à la première erreur, l'erreur et son contexte.
+            main:
+                type: fingers_crossed
+                action_level: error
+                handler: nested
+                excluded_http_codes: [404, 405]
+                channels: ["!deprecation", "!http", "!audit", "!event"]
+                buffer_size: 50
+            nested:
+                type: stream
+                path: php://stderr
+                level: info
+                formatter: App\Observability\ContractJsonFormatter
+            console:
+                type: console
+                process_psr_3_messages: false
+                channels: ["!event", "!doctrine", "!http", "!audit"]

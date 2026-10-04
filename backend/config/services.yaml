@@ -17,3 +17,10 @@ services:
             - '../src/Dto/'
             - '../src/Enum/'
             - '../src/Kernel.php'
+
+    # Observabilité du VPS (contrat de logs) — cf. src/Observability/.
+    App\Observability\ContractJsonFormatter:
+        arguments:
+            $app: climalia
+            $service: app
+            $env: '%kernel.environment%'

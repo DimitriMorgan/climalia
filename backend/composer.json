@@ -21,6 +21,7 @@
         "symfony/lock": "8.0.*",
         "symfony/mailer": "8.0.*",
         "symfony/mime": "8.0.*",
+        "symfony/monolog-bundle": "*",
         "symfony/property-access": "8.0.*",
         "symfony/property-info": "8.0.*",
         "symfony/rate-limiter": "8.0.*",
