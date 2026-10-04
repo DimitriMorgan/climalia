@@ -6,16 +6,25 @@
 	auto_https off
 	admin off
 	order php_server before file_server
+	# Journaux internes de Caddy/FrankenPHP en JSON, avertissements et erreurs seulement (Alloy → Loki).
+	log {
+		output stderr
+		format json
+		level WARN
+	}
 }
 
 :8000 {
-	log {
-		output stderr
-		format console
-		level INFO
-	}
+	# Pas de log d'accès ici : le Caddy partagé du VPS tient déjà le log d'accès complet (JSON), et
+	# l'application écrit une ligne par requête API (contrat de logs).
 
 	encode gzip zstd
+
+	# Sonde de vivacité du conteneur (healthcheck Docker). L'ancienne interrogeait l'API admin de
+	# Caddy (:2019), désactivée ici (`admin off`) : le conteneur restait « unhealthy » en permanence.
+	handle /healthz {
+		respond "ok" 200
+	}
 
 	# --- API Symfony : /api/* -> front controller index.php ---
 	@api path /api /api/*
